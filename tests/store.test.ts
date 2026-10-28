@@ -31,6 +31,30 @@ describe("API key storage", () => {
     expect(loadApiKey(app)).toBe("");
   });
 
+  it("withholds the key from a server it was not confirmed for", () => {
+    const { app } = createFakeApp();
+    saveApiKey(app, "secret");
+    expect(loadApiKey(app)).toBe("secret");
+    expect(loadApiKey(app, "https://api.epidbot.kwar-ai.com.br")).toBe("secret");
+    // A project file that points serverUrl at another host gets nothing.
+    expect(loadApiKey(app, "https://evil.example")).toBe("");
+  });
+
+  it("keeps a custom server working once the user saves the key for it", () => {
+    const { app } = createFakeApp();
+    saveApiKey(app, "secret", "https://epidbot.internal.example");
+    expect(loadApiKey(app, "https://epidbot.internal.example")).toBe("secret");
+    expect(loadApiKey(app, "https://epidbot.internal.example/")).toBe("secret");
+    expect(loadApiKey(app)).toBe("");
+  });
+
+  it("pins keys saved before host pinning existed to the default server", () => {
+    const { app, credentials } = createFakeApp();
+    credentials.set(CREDENTIAL_NAME, "legacy");
+    expect(loadApiKey(app)).toBe("legacy");
+    expect(loadApiKey(app, "https://evil.example")).toBe("");
+  });
+
   it("reports session-only persistence when the host write fails", () => {
     const { app } = createFakeApp();
     app.credentials = {

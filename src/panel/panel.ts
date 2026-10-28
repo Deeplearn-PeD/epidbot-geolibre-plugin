@@ -1881,7 +1881,7 @@ export class EpidBotPanel {
     const enteredKey = this.apiKeyInput.value;
     const currentKey = this.cb.getApiKey();
     if (enteredKey !== currentKey) {
-      const result = this.saveKey(enteredKey);
+      const result = this.saveKey(enteredKey, next.serverUrl);
       if (result === "unavailable" && enteredKey) {
         // No host store: the key still works for this session; say so.
         this.savedIndicator.hidden = false;
@@ -1898,8 +1898,8 @@ export class EpidBotPanel {
     }, 2500);
   }
 
-  private saveKey(key: string): ApiKeySaveResult {
-    const result = saveApiKey(this.app, key);
+  private saveKey(key: string, serverUrl: string): ApiKeySaveResult {
+    const result = saveApiKey(this.app, key, serverUrl);
     if (result === "unavailable") {
       // Best effort with no host store: keep it for this session only.
       return "unavailable";

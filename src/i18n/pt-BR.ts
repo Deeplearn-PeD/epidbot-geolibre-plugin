@@ -140,7 +140,7 @@ export const ptBR: Record<string, string> = {
   "plugin.epidbot.error.auth":
     "Chave de API inválida ou revogada. Verifique a chave nas Configurações.",
   "plugin.epidbot.error.plan":
-    "Seu plano do EpidBot não inclui chaves de API — é preciso Max ou Team.",
+    "Seu plano do EpidBot não inclui chaves de API — é preciso Pro, Max ou Team.",
   "plugin.epidbot.error.quota": "Cota da API excedida. Aguarde um momento e tente novamente.",
   "plugin.epidbot.error.network":
     "Não foi possível acessar o EpidBot. Verifique a URL do servidor e sua conexão.",

@@ -53,7 +53,7 @@ function syncAssistantTools(): void {
   assistantDisposer?.();
   assistantDisposer = null;
   if (!rt) return;
-  if (!loadApiKey(rt.app)) return;
+  if (!loadApiKey(rt.app, rt.settings.serverUrl)) return;
   assistantDisposer = registerAssistantTools({
     app: rt.app,
     client: rt.client,
@@ -78,7 +78,7 @@ function activateRuntime(app: GeoLibreAppAPI): void {
   // true request-level cancellation.
   const client = new EpidBotClient({
     serverUrl: settings.serverUrl,
-    getApiKey: () => (rt ? loadApiKey(rt.app) : ""),
+    getApiKey: () => (rt ? loadApiKey(rt.app, rt.settings.serverUrl) : ""),
     fetchImpl: ((...args: Parameters<typeof fetch>) =>
       (rt?.app.nativeFetch ?? globalThis.fetch)(...args)) as typeof fetch,
     passSignalToFetch: typeof app.nativeFetch !== "function",
@@ -101,7 +101,7 @@ function activateRuntime(app: GeoLibreAppAPI): void {
       client.setServerUrl(next.serverUrl);
       syncAssistantTools();
     },
-    getApiKey: () => loadApiKey(app),
+    getApiKey: () => loadApiKey(app, runtime.settings.serverUrl),
     buildContext: () => buildMapContext(app),
     onLayerAdded: (record: ResultLayerRecord) => {
       // Cap implicitly: the project-state sanitizer keeps the last 50.

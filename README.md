@@ -31,7 +31,7 @@ License: MIT (see [LICENSE](LICENSE)).
 ## Install
 
 Requirements: **GeoLibre Desktop or Web ≥ 3.5.0** and an EpidBot account on
-the **Max or Team** plan with a personal API key created in the EpidBot web
+the **Pro, Max or Team** plan with a personal API key created in the EpidBot web
 app under *Settings → API Keys*.
 
 ### From a release zip (Desktop)
@@ -104,7 +104,7 @@ shared projects via the registry's `publishableSettings`).
 
 | Setting | Meaning |
 |---|---|
-| API key | Personal EpidBot key (Max or Team plan), sent as `X-API-Key` on every request |
+| API key | Personal EpidBot key (Pro, Max or Team plan), sent as `X-API-Key` on every request |
 | Server URL | EpidBot API base URL: `https://api.epidbot.kwar-ai.com.br` (pre-filled default) |
 | Answer language | `en` / `pt-BR` (sent as `locale` to `/chat`) |
 | Poll interval | Seconds between job-status polls (default 1.5 s) |
@@ -202,7 +202,7 @@ shorthand below means `/api/v1/chat`; every path carries the `/api/v1` prefix):
 - Errors: 401 invalid key, 403 plan gate, 429 quota; 502/503/504 and network
   failures are retried with backoff.
 - Authentication: a personal key created in the web app under **Settings → API Keys**.
-- Plan gate: API keys are part of the **Max and Team** plans (Team inherits every Max feature).
+- Plan gate: API keys are part of the **Pro, Max and Team** plans (Team inherits every Max feature).
 - Data handling: the question and the map context the user explicitly attaches are the only data
   sent; nothing is collected by the plugin itself.
 

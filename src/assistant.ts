@@ -40,7 +40,7 @@ const GUIDANCE = [
   "Portuguese or English; set attach_context to include the current map",
   "extent, visible layers and selection. When an answer contains GeoJSON,",
   "offer to put it on the map with add_epidbot_result. Both tools need an",
-  "EpidBot API key (Max or Team plan) configured in the EpidBot panel.",
+  "EpidBot API key (Pro, Max or Team plan) configured in the EpidBot panel.",
 ].join(" ");
 
 function askEpidBotSpec(deps: AssistantDeps): GeoLibreAssistantToolSpec {

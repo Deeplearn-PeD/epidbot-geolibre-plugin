@@ -1,7 +1,7 @@
 {
   "id": "epidbot",
   "name": "EpidBot",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "entry": "dist/index.js",
   "description": "Chat with EpidBot, the AI assistant for public health and epidemiological data (DATASUS, WHO, PAHO, ECDC, Malaria Atlas, and more), over the map you are looking at. Answers come back as text, charts and map layers; layers can be attached to prompts and EpidBot-proposed attribute edits are applied after review.",
   "style": "dist/style.css",

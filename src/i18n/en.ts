@@ -137,7 +137,7 @@ export const en: Record<string, string> = {
 
   "plugin.epidbot.error.auth": "Invalid or revoked API key. Check the key in Settings.",
   "plugin.epidbot.error.plan":
-    "Your EpidBot plan does not include API keys — Max or Team required.",
+    "Your EpidBot plan does not include API keys — Pro, Max or Team required.",
   "plugin.epidbot.error.quota": "API quota exceeded. Wait a moment and try again.",
   "plugin.epidbot.error.network":
     "Could not reach EpidBot. Check the server URL and your connection.",
