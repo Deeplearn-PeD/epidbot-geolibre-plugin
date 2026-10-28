@@ -189,8 +189,11 @@ export class EpidBotPanel {
     this.sessionSelect.value = this.sessionId === null ? "" : String(this.sessionId);
     this.applyTexts();
     this.renderTranscript();
+    // Restore the composer state after a detach while a question runs.
+    this.setBusy(this.busy);
+    if (this.busy) this.showStatus(this.t("status.submitting"));
     void this.refreshSessions();
-    return () => this.dispose();
+    return () => this.detach();
   }
 
   private bindText(
@@ -397,14 +400,14 @@ export class EpidBotPanel {
         event.preventDefault();
         void this.submitComposer();
       }
-    });
-    this.composerButton = el("button", "epidbot-button epidbot-button-primary");
+    });    this.composerButton = el("button", "epidbot-button epidbot-button-primary");
     this.composerButton.type = "submit";
     this.bindText(this.composerButton, "composer.send");
     form.append(this.composerInput, this.composerButton);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      void this.submitComposer();
+      // Submitting via the button while a question runs means "Stop".
+      void this.submitComposer(true);
     });
     return form;
   }
@@ -427,6 +430,17 @@ export class EpidBotPanel {
   // Public API (used by the entry point / toolbar menu)
   // ------------------------------------------------------------------
 
+  /** Host cleanup (the panel was closed or displaced by another panel):
+   * remove the DOM but keep state and any in-flight question running.
+   * Re-attach restores the transcript, including the answer when it
+   * arrives while detached. */
+  detach(): void {
+    this.root?.remove();
+    this.root = null;
+    this.i18nEls.length = 0;
+  }
+
+  /** Full teardown (plugin deactivation): stop everything and reset. */
   dispose(): void {
     this.abort?.abort();
     this.abort = null;
@@ -434,11 +448,10 @@ export class EpidBotPanel {
       window.clearTimeout(this.statusTimer);
       this.statusTimer = null;
     }
+    this.busy = false;
     for (const url of this.objectUrls) URL.revokeObjectURL(url);
     this.objectUrls = [];
-    this.root?.remove();
-    this.root = null;
-    this.i18nEls.length = 0;
+    this.detach();
   }
 
   retranslate(): void {
@@ -454,6 +467,9 @@ export class EpidBotPanel {
   }
 
   newSession(): void {
+    // A running question belongs to the old session: stop it (the cancelled
+    // notice is suppressed while the transcript is being reset).
+    this.abort?.abort();
     this.setSessionId(null);
     this.turns = [];
     if (!this.root) return;
@@ -531,11 +547,18 @@ export class EpidBotPanel {
       };
       this.turns.push(turn);
       this.renderAssistantInto(pending, turn, text);
+      // The transcript may have been rebuilt while we waited (panel
+      // detached, session reset): re-render so the answer is visible.
+      if (!pending.isConnected && this.root && this.turns.length > 0) {
+        this.renderTranscript();
+      }
       if (result.sessionId !== null) this.setSessionId(result.sessionId);
       void this.refreshSessions();
     } catch (err) {
       pending.remove();
-      this.appendError(errorInfo(err));
+      // While a reset is in flight the transcript is already the new
+      // session's; don't spray a cancellation notice into it.
+      if (this.turns.length > 0) this.appendError(errorInfo(err));
     } finally {
       this.setBusy(false);
       this.showStatus(null);
@@ -863,10 +886,11 @@ export class EpidBotPanel {
   // Composer
   // ------------------------------------------------------------------
 
-  private async submitComposer(): Promise<void> {
+  private async submitComposer(stopIfBusy = false): Promise<void> {
     if (this.busy) {
-      // The send button doubles as the stop button while a question runs.
-      this.abort?.abort();
+      // Only the explicit Stop button (a form submit) cancels the running
+      // question; pressing Enter again must never interrupt it.
+      if (stopIfBusy) this.abort?.abort();
       return;
     }
     const text = this.composerInput.value;

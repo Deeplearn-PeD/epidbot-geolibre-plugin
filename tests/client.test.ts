@@ -273,6 +273,37 @@ describe("EpidBotClient.misc", () => {
   });
 });
 
+describe("abort-signal transport", () => {
+  it("passes the caller's signal to fetch by default", async () => {
+    const { fetchImpl, calls } = makeFetch(() => jsonResponse({ email: "x" }));
+    const controller = new AbortController();
+    await makeClient(fetchImpl).checkAuth(controller.signal);
+    expect(calls[0].init.signal).toBe(controller.signal);
+  });
+
+  it("can keep the signal out of fetch while still honoring Stop", async () => {
+    const { fetchImpl, calls } = makeFetch(({ index }) =>
+      jsonResponse(index === 0 ? { job_id: "j1" } : { status: "processing" }),
+    );
+    const controller = new AbortController();
+    const client = makeClient(fetchImpl, {
+      passSignalToFetch: false,
+      pollIntervalMs: 25,
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    });
+    setTimeout(() => controller.abort(), 5);
+
+    await expect(
+      client.ask("q", { signal: controller.signal }),
+    ).rejects.toBeInstanceOf(ChatCancelledError);
+    // Stopped during the first poll wait instead of running to the timeout.
+    expect(calls.length).toBeLessThanOrEqual(2);
+    for (const call of calls) {
+      expect(call.init.signal).toBeUndefined();
+    }
+  });
+});
+
 describe("poll backoff growth", () => {
   it("caps the poll interval", async () => {
     const sleeps: number[] = [];

@@ -41,6 +41,11 @@ export interface EpidBotClientOptions {
   retryBaseDelayMs?: number;
   /** Defaults to globalThis.fetch; the entry point passes app.nativeFetch. */
   fetchImpl?: typeof globalThis.fetch;
+  /** Pass the abort signal into fetch() itself, cancelling the in-flight
+   * HTTP request. Default true (browser fetch supports it). Set false when
+   * fetchImpl is a host nativeFetch whose signal support is unknown — Stop
+   * then takes effect at the next poll boundary instead. */
+  passSignalToFetch?: boolean;
   /** Injectable wait (tests). */
   sleep?: (ms: number) => Promise<void>;
 }
@@ -83,6 +88,7 @@ export class EpidBotClient {
   private readonly maxRetries: number;
   private readonly retryBaseDelayMs: number;
   private readonly fetchImpl: typeof globalThis.fetch;
+  private readonly passSignalToFetch: boolean;
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(opts: EpidBotClientOptions) {
@@ -94,6 +100,7 @@ export class EpidBotClient {
     this.maxRetries = Math.max(opts.maxRetries ?? 2, 0);
     this.retryBaseDelayMs = opts.retryBaseDelayMs ?? 500;
     this.fetchImpl = opts.fetchImpl ?? ((...args) => globalThis.fetch(...args));
+    this.passSignalToFetch = opts.passSignalToFetch ?? true;
     this.sleep =
       opts.sleep ??
       ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -168,6 +175,7 @@ export class EpidBotClient {
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       throwIfAborted(opts.signal);
       let response: Response;
+      const fetchSignal = this.passSignalToFetch ? opts.signal : undefined;
       try {
         response = await this.fetchImpl(url, {
           method,
@@ -176,7 +184,7 @@ export class EpidBotClient {
             ...this.authHeaders(),
           },
           body: opts.json !== undefined ? JSON.stringify(opts.json) : undefined,
-          signal: opts.signal,
+          signal: fetchSignal,
         });
       } catch (err) {
         if (opts.signal?.aborted) throw new ChatCancelledError("Chat request cancelled.");
@@ -238,6 +246,23 @@ export class EpidBotClient {
     });
   }
 
+  /** A signal-aware wait for the poll loop: resolves after ms, or rejects
+   * as soon as the caller aborts — no zombie polls after Stop. */
+  private waitOrAbort(ms: number, signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) {
+      return Promise.reject(new ChatCancelledError("Chat request cancelled."));
+    }
+    if (!signal) return this.sleep(ms);
+    let onAbort = () => {};
+    const cancelled = new Promise<never>((_, reject) => {
+      onAbort = () => reject(new ChatCancelledError("Chat request cancelled."));
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
+    return Promise.race([this.sleep(ms), cancelled]).finally(() => {
+      signal.removeEventListener("abort", onAbort);
+    });
+  }
+
   /** Submit the question and poll until the answer completes. */
   async ask(message: string, opts: AskOptions = {}): Promise<ChatResult> {
     const submitted = await this.request<ChatSubmitResponse>("POST", "/chat", {
@@ -285,7 +310,7 @@ export class EpidBotClient {
           detail: status.status,
         });
       }
-      await this.sleep(wait);
+      await this.waitOrAbort(wait, opts.signal);
       wait = Math.min(wait * 1.15, this.pollMaxIntervalMs);
     }
   }
@@ -327,7 +352,7 @@ export class EpidBotClient {
         response = await this.fetchImpl(url, {
           method: "GET",
           headers: this.authHeaders(),
-          signal,
+          signal: this.passSignalToFetch ? signal : undefined,
         });
       } catch (err) {
         if (signal?.aborted) throw new ChatCancelledError("Chat request cancelled.");

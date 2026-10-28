@@ -72,12 +72,16 @@ function activateRuntime(app: GeoLibreAppAPI): void {
 
   const settings = { ...savedState.settings };
   // Read nativeFetch lazily: hosts may expose it any time, and tests can
-  // stub it after activation.
+  // stub it after activation. On hosts backed by nativeFetch (desktop) the
+  // abort signal stays out of fetch() — its support is unspecified — so
+  // Stop takes effect at the next poll boundary; browser fetch (web) gets
+  // true request-level cancellation.
   const client = new EpidBotClient({
     serverUrl: settings.serverUrl,
     getApiKey: () => (rt ? loadApiKey(rt.app) : ""),
     fetchImpl: ((...args: Parameters<typeof fetch>) =>
       (rt?.app.nativeFetch ?? globalThis.fetch)(...args)) as typeof fetch,
+    passSignalToFetch: typeof app.nativeFetch !== "function",
   });
 
   const runtime: Runtime = {

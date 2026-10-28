@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { EpidBotClient } from "../src/api/client";
-import { EpidBotQuotaError } from "../src/api/errors";
+import { ChatCancelledError, EpidBotQuotaError } from "../src/api/errors";
 import { createTranslator, registerEpidBotTranslations } from "../src/i18n";
 import { DEFAULT_SETTINGS, type EpidBotSettings } from "../src/types";
 import type { MapContextPayload } from "../src/api/mapContext";
@@ -23,6 +23,7 @@ interface Harness {
     ask: ReturnType<typeof vi.fn>;
     getMessages: ReturnType<typeof vi.fn>;
     listSessions: ReturnType<typeof vi.fn>;
+    createSession: ReturnType<typeof vi.fn>;
     fetchPlot: ReturnType<typeof vi.fn>;
     checkAuth: ReturnType<typeof vi.fn>;
   };
@@ -31,6 +32,8 @@ interface Harness {
   onLayerAdded: ReturnType<typeof vi.fn>;
   /** Mutable context payload returned by the buildContext stub. */
   context: { payload: MapContextPayload | null };
+  /** The host cleanup returned by attach() (detach, not dispose). */
+  cleanup: () => void;
 }
 
 function harness({ withKey = true }: { withKey?: boolean } = {}): Harness {
@@ -71,8 +74,17 @@ function harness({ withKey = true }: { withKey?: boolean } = {}): Harness {
 
   const container = document.createElement("div");
   document.body.appendChild(container);
-  panel.attach(container);
-  return { fake, panel, client, settings, onSettingsChange, onLayerAdded, context };
+  const cleanup = panel.attach(container);
+  return {
+    fake,
+    panel,
+    client,
+    settings,
+    onSettingsChange,
+    onLayerAdded,
+    context,
+    cleanup,
+  };
 }
 
 function composer(): { input: HTMLTextAreaElement; form: HTMLFormElement } {
@@ -408,6 +420,108 @@ describe("results on the map (F3)", () => {
   it("shows no cards when the answer has no valid map blocks", async () => {
     await askWithContent("```geojson\n{broken\n```");
     expect(document.querySelector(".epidbot-result")).toBeNull();
+  });
+});
+
+describe("interrupted questions (regression)", () => {
+  interface Deferred {
+    promise: Promise<{ sessionId: number | null; content: string; images: string[] }>;
+    resolve: (value: { sessionId: number | null; content: string; images: string[] }) => void;
+    reject: (err: unknown) => void;
+  }
+
+  function deferred(): Deferred {
+    let resolve!: Deferred["resolve"];
+    let reject!: Deferred["reject"];
+    const promise = new Promise<{ sessionId: number | null; content: string; images: string[] }>(
+      (res, rej) => {
+        resolve = res;
+        reject = rej;
+      },
+    );
+    return { promise, resolve, reject };
+  }
+
+  function composerButton() {
+    return composer().form.querySelector<HTMLButtonElement>("button")!;
+  }
+
+  it("does not cancel the running question when Enter is pressed again", async () => {
+    const { panel, client } = harness();
+    const d = deferred();
+    client.ask.mockImplementationOnce(() => d.promise);
+    await submitQuestion(panel, "first");
+
+    const input = composer().input;
+    input.value = "second";
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    await flush();
+    expect(client.ask).toHaveBeenCalledTimes(1); // second Enter ignored, no abort
+
+    d.resolve({ sessionId: null, content: "done", images: [] });
+    await flush();
+    expect(document.querySelectorAll(".epidbot-msg").length).toBe(2);
+    expect(document.querySelector(".epidbot-msg-error")).toBeNull();
+  });
+
+  it("still cancels via the Stop button", async () => {
+    const { panel, client } = harness();
+    const d = deferred();
+    client.ask.mockImplementationOnce(() => d.promise);
+    await submitQuestion(panel, "q");
+    expect(composerButton().textContent).toBe("Stop");
+
+    composer().form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    // The real client rejects the pending ask when its signal fires; the
+    // stub needs that spelled out.
+    d.reject(new ChatCancelledError("Chat request cancelled."));
+    await flush();
+    expect(document.querySelector(".epidbot-msg-error")?.textContent).toContain("cancelled");
+    expect(composerButton().textContent).toBe("Send");
+  });
+
+  it("survives host panel cleanup while a question runs", async () => {
+    const h = harness();
+    const d = deferred();
+    h.client.ask.mockImplementationOnce(() => d.promise);
+    await submitQuestion(h.panel, "q");
+
+    h.cleanup(); // displaced or closed: detach, but the question keeps running
+    expect(document.querySelector(".epidbot-panel")).toBeNull();
+
+    d.resolve({ sessionId: null, content: "late answer", images: [] });
+    await flush();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    h.panel.attach(container);
+    const transcript = document.querySelector(".epidbot-transcript")?.textContent ?? "";
+    expect(transcript).toContain("q");
+    expect(transcript).toContain("late answer");
+    expect(composerButton().textContent).toBe("Send"); // not stuck busy
+  });
+
+  it("aborts quietly when a new session starts mid-question", async () => {
+    const h = harness();
+    const d = deferred();
+    h.client.ask.mockImplementationOnce(() => d.promise);
+    await submitQuestion(h.panel, "q");
+
+    h.panel.newSession();
+    // The aborted ask settles as cancelled; the reset suppresses the notice.
+    d.reject(new ChatCancelledError("Chat request cancelled."));
+    await flush();
+    expect(document.querySelector(".epidbot-welcome")).not.toBeNull();
+    expect(document.querySelector(".epidbot-msg-error")).toBeNull();
+    expect(composerButton().textContent).toBe("Send");
+
+    const lateAnswer = { sessionId: null, content: "old answer", images: [] };
+    d.resolve(lateAnswer);
+    await flush();
+    expect(document.querySelector(".epidbot-transcript")?.textContent).not.toContain(
+      "old answer",
+    );
   });
 });
 
