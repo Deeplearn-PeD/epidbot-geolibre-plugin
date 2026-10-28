@@ -1,5 +1,10 @@
 # EpidBot for GeoLibre
 
+[![CI](https://github.com/Deeplearn-PeD/epidbot-geolibre-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/Deeplearn-PeD/epidbot-geolibre-plugin/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Deeplearn-PeD/epidbot-geolibre-plugin)](https://github.com/Deeplearn-PeD/epidbot-geolibre-plugin/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/Deeplearn-PeD/epidbot-geolibre-plugin)](LICENSE)
+[![GeoLibre](https://img.shields.io/badge/GeoLibre-%E2%89%A5%203.5.0-2456a6)](https://geolibre.app/)
+
 A [GeoLibre](https://geolibre.app/) plugin that brings **EpidBot** — the AI assistant for
 Brazilian public health data (DATASUS/SINAN, WHO, PAHO, ECDC and 40+ other sources) — into the
 GeoLibre workspace, so epidemiological questions can be asked over the map you are already
@@ -13,10 +18,97 @@ client, settings, i18n, map context with layer schemas, results on the map,
 sessions, assistant tools, layer exchange with budgets and interactive
 reduction, attribute write-back with review + revert, authenticated artifact
 downloads/uploads, quick prompts — 229 unit tests, CI, reproducible zip).
-Next: F6 (registry submission), F7 (launch — held until the API-key plan gate
-opens to Pro).
+Next: F6 (registry submission — pipeline ready, PR pending), F7 (docs page
+under `epidbot-docs` and launch — held until the API-key plan gate opens to
+Pro; README install paths done).
 
 License: MIT (see [LICENSE](LICENSE)).
+
+---
+
+## Install
+
+Requirements: **GeoLibre Desktop or Web ≥ 3.5.0** and an EpidBot account on
+the **Max or Team** plan with a personal API key created in the EpidBot web
+app under *Settings → API Keys*.
+
+### From a release zip (Desktop)
+
+1. Download `epidbot-<version>.zip` from the
+   [latest release](https://github.com/Deeplearn-PeD/epidbot-geolibre-plugin/releases/latest)
+   (the zip is attached to the release by CI and pinned by SHA-256).
+2. In GeoLibre Desktop, install the plugin from the zip
+   (*Plugins → Install from file/zip*, or drop the unzipped folder into your
+   user plugins directory) and restart the app.
+3. Open the **EpidBot** panel from the right sidebar or the toolbar menu and
+   paste your API key under ⚙ *Settings*.
+
+### From a manifest URL (Web)
+
+Once the plugin is in the curated registry
+([`opengeos/geolibre-plugins`](https://github.com/opengeos/geolibre-plugins),
+submission in progress), it installs from the
+[GeoLibre plugin marketplace](https://plugins.geolibre.app/) directly and is
+updated with the app. While the submission is pending, GeoLibre Web can load
+a development build via a manifest URL served with
+`npm run serve:geolibre` (see *Development* below).
+
+## Features
+
+- **Chat panel** — a right-sidebar panel (also a floating panel and toolbar
+  menu entry) for epidemiological questions without leaving the map.
+  Answers render with Markdown, framed code blocks with a copy button, and
+  inline chart thumbnails.
+- **Map integration** — EpidBot understands your map and can feed it back:
+  - *Map-context injection* — visible layers (with field schemas, sample
+    values, feature and selection counts), the viewport extent and CRS are
+    prepended to prompts when you allow it; a preview shows the exact
+    payload.
+  - *Spatial prompts* — one-click menu actions to ask about the current view
+    or the features you have selected.
+  - *"Add to map"* — GeoJSON blocks, dataset URLs and EpidBot artifacts in
+    answers become styled map layers with one click; CSVs with
+    latitude/longitude columns become point layers.
+- **Layer exchange** — send layers *to* EpidBot: attach selected features,
+  the features in view, a whole layer, or identifiers only (for edit
+  requests). A configurable inline budget (default 64 KiB) triggers an
+  interactive reduction flow: narrow to view/selection, reduce coordinate
+  precision, upload the layer as a server artifact, or send statistics only.
+- **Attribute write-back** — ask EpidBot to enrich your layers ("add a field
+  with population counts"): proposed edits arrive as reviewable
+  `epidbot-edit` operations and are only applied after you inspect a preview
+  (matched features, unmatched keys, value samples). Because GeoLibre has no
+  edit-session undo, the panel keeps a snapshot and offers a **Revert**
+  button after every applied edit.
+- **API-key authentication** — the key is sent as `X-API-Key` on every
+  request and stored in the host credential store (system keychain on
+  desktop, browser storage on the web) — never in project files.
+- **Sessions** — pick an existing conversation, start a new one, or let the
+  server auto-create one. The session binding travels with the GeoLibre
+  project; conversations export to Markdown.
+- **Quick prompts** — preset prompts (dengue season summary, SINAN
+  downloads, layer explanations…) from a dropdown above the composer.
+- **GeoLibre assistant integration** — the host AI assistant can delegate
+  epidemiological questions to EpidBot (`ask_epidbot`) and place GeoJSON
+  answers on the map (`add_epidbot_result`).
+- **Internationalized** — English and Brazilian Portuguese UI, following the
+  app language.
+
+## Configuration
+
+Open ⚙ *Settings* at the top of the panel. The API key lives in the host
+credential store; everything else is non-secret project data (stripped from
+shared projects via the registry's `publishableSettings`).
+
+| Setting | Meaning |
+|---|---|
+| API key | Personal EpidBot key (Max or Team plan), sent as `X-API-Key` on every request |
+| Server URL | EpidBot API base URL: `https://api.epidbot.kwar-ai.com.br` (pre-filled default) |
+| Answer language | `en` / `pt-BR` (sent as `locale` to `/chat`) |
+| Poll interval | Seconds between job-status polls (default 1.5 s) |
+| Inline attachment budget | KiB budget for layer attachments before the reduction flow kicks in (default 64) |
+| Artifact uploads | Allow over-budget layers to be uploaded as server artifacts (requires server support; off by default) |
+| Attach map context | Send layers/extent/CRS/selection with questions (toggle above the composer) |
 
 ---
 
@@ -218,10 +310,12 @@ loads it.
 
 ### F7 — Documentation and launch (0.5 d)
 
-- README with both install paths (zip and manifest URL);
-- page under `epidbot-docs` (`user-guide/geolibre-plugin.md`, EN/PT/ES) and a manual section;
-- entry in the `kwar-ai` site hub next to the QGIS block;
-- an English LinkedIn post (copy in the Obsidian vault `Posts Linkedin/`).
+- README with both install paths (zip and manifest URL) — **done (0.2.0)**;
+- page under `epidbot-docs` (`user-guide/geolibre-plugin.md`, EN/PT/ES) and a manual section
+  — pending (no plugin pages exist there yet, not even for QGIS);
+- entry in the `kwar-ai` site hub next to the QGIS block — pending;
+- an English LinkedIn post (copy in the Obsidian vault `Posts Linkedin/`) — pending,
+  held until the launch gate opens.
 
 Total: ~9–10 developer-days, plus review time in the GeoLibre registry.
 
