@@ -458,6 +458,20 @@ export class EpidBotPanel {
     this.turns = [];
     if (!this.root) return;
     this.renderTranscript();
+    // Create the session server-side when possible so it shows in the list,
+    // like the QGIS plugin; without a key (or on failure) the server simply
+    // auto-creates a session on the first question.
+    if (!this.cb.getApiKey()) return;
+    const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+    void this.client
+      .createSession(this.t("session.createdName", { stamp }))
+      .then((created) => {
+        const id = typeof created.id === "number" ? created.id : null;
+        if (id !== null && this.root) this.setSessionId(id);
+      })
+      .catch(() => {
+        // Local-only session; asking still works.
+      });
   }
 
   getSessionId(): number | null {

@@ -9,12 +9,11 @@ This repository is the GeoLibre counterpart of
 [`Deeplearn-PeD/epidbot-qgis-plugin`](https://github.com/Deeplearn-PeD/epidbot-qgis-plugin).
 It is currently at the **planning stage**: this README is the development plan.
 
-Status: **F0–F3 implemented** (scaffold, chat panel, API client, settings,
-i18n, map-context injection with spatial prompts, results on the map — 125
-unit tests, CI, reproducible zip). Next: F4 (sessions polish), F5 (assistant
-tools), F6 (registry submission), F7 (launch — held until the API-key plan
-gate opens to Pro). Target: functional parity with the QGIS plugin (v0.2.x),
-then GeoLibre-only extras (assistant tools, deep links).
+Status: **F0–F5 implemented** (scaffold, chat panel, API client, settings,
+i18n, map context + spatial prompts, results on the map, sessions, assistant
+tools — 138 unit tests, CI, reproducible zip). Next: F6 (registry
+submission), F7 (launch — held until the API-key plan gate opens to Pro).
+Code complete for parity + GeoLibre extras.
 
 License: MIT (see [LICENSE](LICENSE)).
 

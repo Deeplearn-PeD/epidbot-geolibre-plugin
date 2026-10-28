@@ -45,6 +45,7 @@ export const ptBR: Record<string, string> = {
   "plugin.epidbot.session.label": "Sessão",
   "plugin.epidbot.session.none": "Nova sessão",
   "plugin.epidbot.session.new": "Nova sessão",
+  "plugin.epidbot.session.createdName": "Sessão {{stamp}}",
   "plugin.epidbot.session.export": "Exportar como Markdown",
   "plugin.epidbot.session.exportEmpty": "Nada para exportar ainda.",
   "plugin.epidbot.session.loadFailed": "Não foi possível carregar o histórico desta sessão.",

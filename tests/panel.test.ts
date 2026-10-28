@@ -47,6 +47,7 @@ function harness({ withKey = true }: { withKey?: boolean } = {}): Harness {
     })),
     getMessages: vi.fn(async () => ({ messages: [] })),
     listSessions: vi.fn(async () => [{ id: 5, name: "Dengue work" }]),
+    createSession: vi.fn(async (name: string) => ({ id: 77, name })),
     fetchPlot: vi.fn(async () => new Blob(["PNG"], { type: "image/png" })),
     checkAuth: vi.fn(async () => ({ email: "epi@example.org" })),
     withApiKey: vi.fn(() => ({ checkAuth: client.checkAuth })),
@@ -156,16 +157,30 @@ describe("EpidBotPanel", () => {
     expect(panel.getSessionId()).toBe(5);
   });
 
-  it("starts a new session from the button", async () => {
-    const { panel } = harness();
+  it("starts a new session locally, then binds the server-created one", async () => {
+    const { panel, client } = harness();
     await submitQuestion(panel, "q");
     expect(panel.getSessionId()).toBe(5);
     const newButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
       (button) => button.textContent === "New session",
     )!;
     newButton.click();
+    // Reset is immediate; the server-side creation follows asynchronously.
     expect(panel.getSessionId()).toBeNull();
     expect(document.querySelector(".epidbot-welcome")).not.toBeNull();
+    await flush();
+    expect(client.createSession).toHaveBeenCalledWith(expect.stringContaining("Session "));
+    expect(panel.getSessionId()).toBe(77);
+    const select = document.querySelector<HTMLSelectElement>(".epidbot-session-select select")!;
+    expect(select.value).toBe("77");
+  });
+
+  it("keeps a local session when creation is impossible", async () => {
+    const { panel, client } = harness({ withKey: false });
+    panel.newSession();
+    await flush();
+    expect(client.createSession).not.toHaveBeenCalled();
+    expect(panel.getSessionId()).toBeNull();
   });
 
   it("saves settings through the callbacks and the credential store", () => {

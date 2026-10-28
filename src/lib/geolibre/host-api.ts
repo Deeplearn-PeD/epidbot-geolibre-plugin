@@ -95,6 +95,17 @@ export interface GeoLibreToolbarMenu {
 }
 
 /** The surface GeoLibre exposes to an active plugin. */
+export interface GeoLibreAssistantToolSpec {
+  name: string;
+  description: string;
+  inputSchema?: Record<string, unknown>;
+  callback: (
+    input: unknown,
+    context?: { signal?: AbortSignal },
+  ) => unknown | Promise<unknown>;
+}
+
+/** The surface GeoLibre exposes to an active plugin. */
 export interface GeoLibreAppAPI {
   // -- Panels and menus -----------------------------------------------------
   registerRightPanel?: (panel: GeoLibreRightPanelRegistration) => () => void;
@@ -151,6 +162,14 @@ export interface GeoLibreAppAPI {
     options?: Record<string, unknown>,
   ) => string;
   fitBounds?: (bounds: GeoLibreBounds) => void;
+
+  // -- AI assistant (activation-only; omitted from other lifecycle hooks) ----
+  /** Register a declarative assistant tool: plain JSON Schema plus a
+   * callback. Input is NOT validated — the callback must validate it. The
+   * callback's second argument carries { signal } for the assistant's Stop. */
+  registerAssistantToolSpec?: (spec: GeoLibreAssistantToolSpec) => () => void;
+  /** Text appended to the assistant's system prompt (≤ 4000 chars). */
+  registerAssistantGuidance?: (text: string) => () => void;
 }
 
 /** The object a plugin's GeoLibre entry point must export. */

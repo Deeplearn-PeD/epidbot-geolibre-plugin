@@ -9,6 +9,7 @@
 import "./panel/styles.css";
 import { EpidBotClient } from "./api/client";
 import { buildMapContext } from "./api/mapContext";
+import { registerAssistantTools } from "./assistant";
 import { createTranslator, registerEpidBotTranslations } from "./i18n";
 import type { GeoLibreAppAPI, GeoLibrePlugin } from "./lib/geolibre/host-api";
 import { EpidBotPanel } from "./panel/panel";
@@ -43,16 +44,40 @@ interface Runtime {
 
 let rt: Runtime | null = null;
 let savedState = sanitizeProjectState(undefined);
+let assistantDisposer: (() => void) | null = null;
+
+/** Progressive disclosure: the assistant tools are advertised only while a
+ * key exists (README F5). Re-run after every settings change, since that is
+ * when the key appears or disappears. */
+function syncAssistantTools(): void {
+  assistantDisposer?.();
+  assistantDisposer = null;
+  if (!rt) return;
+  if (!loadApiKey(rt.app)) return;
+  assistantDisposer = registerAssistantTools({
+    app: rt.app,
+    client: rt.client,
+    getSettings: () => rt!.settings,
+    getSessionId: () => rt!.panel?.getSessionId() ?? null,
+    buildContext: () => buildMapContext(rt!.app),
+    onLayerAdded: (record) => {
+      rt?.resultLayers.push(record);
+    },
+  });
+}
 
 function activateRuntime(app: GeoLibreAppAPI): void {
   registerEpidBotTranslations(app);
   const t = createTranslator(app);
 
   const settings = { ...savedState.settings };
+  // Read nativeFetch lazily: hosts may expose it any time, and tests can
+  // stub it after activation.
   const client = new EpidBotClient({
     serverUrl: settings.serverUrl,
     getApiKey: () => (rt ? loadApiKey(rt.app) : ""),
-    fetchImpl: app.nativeFetch,
+    fetchImpl: ((...args: Parameters<typeof fetch>) =>
+      (rt?.app.nativeFetch ?? globalThis.fetch)(...args)) as typeof fetch,
   });
 
   const runtime: Runtime = {
@@ -70,6 +95,7 @@ function activateRuntime(app: GeoLibreAppAPI): void {
     onSettingsChange: (next) => {
       runtime.settings = next;
       client.setServerUrl(next.serverUrl);
+      syncAssistantTools();
     },
     getApiKey: () => loadApiKey(app),
     buildContext: () => buildMapContext(app),
@@ -160,6 +186,7 @@ function activateRuntime(app: GeoLibreAppAPI): void {
   }
 
   app.openRightPanel?.(PANEL_ID);
+  syncAssistantTools();
 }
 
 function deactivateRuntime(): void {
@@ -171,6 +198,8 @@ function deactivateRuntime(): void {
     sessionId: rt.panel?.getSessionId() ?? savedState.sessionId,
     resultLayers: [...rt.resultLayers],
   };
+  assistantDisposer?.();
+  assistantDisposer = null;
   for (const dispose of rt.disposers) {
     try {
       dispose();

@@ -47,6 +47,7 @@ export const en: Record<string, string> = {
   "plugin.epidbot.session.label": "Session",
   "plugin.epidbot.session.none": "New session",
   "plugin.epidbot.session.new": "New session",
+  "plugin.epidbot.session.createdName": "Session {{stamp}}",
   "plugin.epidbot.session.export": "Export as Markdown",
   "plugin.epidbot.session.exportEmpty": "Nothing to export yet.",
   "plugin.epidbot.session.loadFailed": "Could not load this session's history.",

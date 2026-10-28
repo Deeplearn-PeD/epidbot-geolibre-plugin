@@ -4,6 +4,8 @@
 import { interpolate } from "../src/i18n";
 import type {
   GeoLibreAppAPI,
+  GeoLibreAssistantToolSpec,
+  GeoLibreFeatureCollection,
   GeoLibreFeatureInput,
   GeoLibrePluginCredentials,
   GeoLibreRightPanelRegistration,
@@ -26,6 +28,9 @@ export interface FakeApp {
   addedTiles: Array<{ name: string; url: string }>;
   /** Active renderer reported by getMapRenderer. */
   renderer: "maplibre" | "mapbox" | "cesium" | "arcgis";
+  /** Assistant tool specs and guidance registered by the plugin. */
+  tools: Map<string, GeoLibreAssistantToolSpec>;
+  guidance: string[];
 }
 
 export function createFakeApp(): FakeApp {
@@ -40,6 +45,8 @@ export function createFakeApp(): FakeApp {
   const addedLayers: Array<{ name: string; data: GeoLibreFeatureCollection }> = [];
   const addedTiles: Array<{ name: string; url: string }> = [];
   let renderer: FakeApp["renderer"] = "maplibre";
+  const tools = new Map<string, GeoLibreAssistantToolSpec>();
+  const guidance: string[] = [];
 
   const store: GeoLibrePluginCredentials = {
     get: (name) => credentials.get(name) ?? "",
@@ -109,6 +116,17 @@ export function createFakeApp(): FakeApp {
       return `tile-${addedTiles.length}`;
     },
     getMapRenderer: () => renderer,
+    registerAssistantToolSpec: (spec: GeoLibreAssistantToolSpec) => {
+      tools.set(spec.name, spec);
+      return () => tools.delete(spec.name);
+    },
+    registerAssistantGuidance: (text: string) => {
+      guidance.push(text);
+      return () => {
+        const index = guidance.indexOf(text);
+        if (index !== -1) guidance.splice(index, 1);
+      };
+    },
   } as unknown as GeoLibreAppAPI;
 
   return {
@@ -134,5 +152,7 @@ export function createFakeApp(): FakeApp {
     get renderer() {
       return renderer;
     },
+    tools,
+    guidance,
   };
 }

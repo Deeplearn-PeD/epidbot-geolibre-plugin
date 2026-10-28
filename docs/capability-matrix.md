@@ -18,15 +18,16 @@ optional chaining.
 | `getLocale` / `translate` / `registerTranslations` / `onLocaleChange` | 0.1.0 | EN / pt-BR UI | Bundled English fallback text renders |
 | `nativeFetch` | 0.1.0 | API client (desktop) | Global `fetch` (CORS is reflected by the API — verified 2026-10-28) |
 | `getViewBounds` | 0.2.0 (F2) | map context builder | Extent omitted from the context payload |
-| `getMapCrs` / `onMapCrsChange` | 0.2.0 (F2) | map context builder | CRS omitted from the context payload |
+| `getMapCrs` / `onMapCrsChange` | 0.2.0 (F2) | map context builder | CRS falls back to "EPSG:3857 (default Web Mercator)" |
 | `listLayers` / `getLayerFeatures` | 0.2.0 (F2) | map context builder | Layer summaries omitted from the context payload |
-| `getSelectedFeatures` / `getSelectedLayerId` | 0.2.0 (F2) | "ask about this selection" | Selection action hidden |
+| `getSelectedFeatures` / `getSelectedLayerId` | 0.2.0 (F2) | "ask about this selection"; context selection rows | Selection action shows a notice; selection rows omitted |
 | `getMapRenderer` | 0.2.0 (F3) | map-action gating | Map actions shown (assumes 2D) |
 | `addGeoJsonLayer` (guaranteed) | 0.2.0 (F3) | GeoJSON answers → layers | "Add to map" cards hidden |
+| `importLayerStyle` | 0.2.0 (F3) | Mapbox GL style JSON for result layers (choropleth) | Host default style remains; a note explains it |
 | `updateGeoJsonLayer` / `removeLayer` / `setLayerVisibility` | 0.2.0 (F3) | result layer management | Older behavior (re-add / leave visible) |
 | `addTileLayer` | 0.2.0 (F3) | dataset/tile URL answers | Tile result cards hidden |
 | `fitBounds` | 0.2.0 (F3) | zoom to a result | No zoom, layer still added |
-| `registerAssistantToolSpec` / `registerAssistantGuidance` | 0.3.0 (F5) | host AI assistant tools | Assistant integration silently absent |
+| `registerAssistantToolSpec` / `registerAssistantGuidance` | 0.2.0 (F5) | `ask_epidbot` / `add_epidbot_result` tools + guidance | Assistant integration silently absent; the panel and its own tools are unaffected. `plugin.json` declares `assistant.description` so the host assistant can turn the plugin on |
 
 ## Plugin lifecycle flags
 
@@ -42,9 +43,10 @@ optional chaining.
 - [x] CORS preflight against `api.epidbot.kwar-ai.com.br` re-verified from
       `Origin: https://geolibre.app` (2026-10-28: 200, origin echoed,
       `x-api-key,content-type` allowed, credentials allowed)
-- [x] F0–F3 host members exercised at unit level against a fake host
+- [x] F0–F5 host members exercised at unit level against a fake host
       (panels, menus, credentials, i18n, selection, renderer gating,
-      addGeoJsonLayer/importLayerStyle/addTileLayer) — 125 tests
+      addGeoJsonLayer/importLayerStyle/addTileLayer, assistant tool specs
+      and guidance) — 138 tests
 - [ ] Members exercised in GeoLibre Desktop v3.5.x (manual step: install the
       zip built by `npm run package:geolibre`, restart, open the panel) —
       **pending, requires a desktop session**
