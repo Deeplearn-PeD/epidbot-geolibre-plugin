@@ -15,6 +15,7 @@ import { EpidBotPanel } from "./panel/panel";
 import type { EpidBotSettings } from "./types";
 import { loadApiKey, sanitizeProjectState } from "./settings/store";
 import { PLUGIN_ID, PLUGIN_NAME, VERSION } from "./version";
+import type { ResultLayerRecord } from "./types";
 
 const PANEL_ID = `${PLUGIN_ID}-chat`;
 const MENU_ID = `${PLUGIN_ID}-menu`;
@@ -36,6 +37,7 @@ interface Runtime {
   client: EpidBotClient;
   panel: EpidBotPanel | null;
   settings: EpidBotSettings;
+  resultLayers: ResultLayerRecord[];
   disposers: Array<() => void>;
 }
 
@@ -53,7 +55,14 @@ function activateRuntime(app: GeoLibreAppAPI): void {
     fetchImpl: app.nativeFetch,
   });
 
-  const runtime: Runtime = { app, client, panel: null, settings, disposers: [] };
+  const runtime: Runtime = {
+    app,
+    client,
+    panel: null,
+    settings,
+    resultLayers: [...savedState.resultLayers],
+    disposers: [],
+  };
   rt = runtime;
 
   const panel = new EpidBotPanel(app, client, t, {
@@ -64,6 +73,10 @@ function activateRuntime(app: GeoLibreAppAPI): void {
     },
     getApiKey: () => loadApiKey(app),
     buildContext: () => buildMapContext(app),
+    onLayerAdded: (record: ResultLayerRecord) => {
+      // Cap implicitly: the project-state sanitizer keeps the last 50.
+      runtime.resultLayers.push(record);
+    },
   });
   runtime.panel = panel;
 
@@ -156,6 +169,7 @@ function deactivateRuntime(): void {
     version: 1,
     settings: { ...rt.settings },
     sessionId: rt.panel?.getSessionId() ?? savedState.sessionId,
+    resultLayers: [...rt.resultLayers],
   };
   for (const dispose of rt.disposers) {
     try {
@@ -194,6 +208,7 @@ export const plugin: GeoLibrePlugin = {
         version: 1,
         settings: { ...rt.settings },
         sessionId: rt.panel?.getSessionId() ?? null,
+        resultLayers: [...rt.resultLayers],
       };
     }
     return savedState;
@@ -201,11 +216,14 @@ export const plugin: GeoLibrePlugin = {
 
   applyProjectState(_app, state) {
     savedState = sanitizeProjectState(state);
-    if (rt?.panel) {
+    if (rt) {
       rt.settings = savedState.settings;
+      rt.resultLayers = [...savedState.resultLayers];
       rt.client.setServerUrl(savedState.settings.serverUrl);
-      rt.panel.applySettings(savedState.settings);
-      rt.panel.setSessionId(savedState.sessionId);
+      if (rt.panel) {
+        rt.panel.applySettings(savedState.settings);
+        rt.panel.setSessionId(savedState.sessionId);
+      }
     }
   },
 };

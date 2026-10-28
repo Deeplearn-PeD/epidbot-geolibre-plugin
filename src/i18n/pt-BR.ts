@@ -83,4 +83,14 @@ export const ptBR: Record<string, string> = {
   "plugin.epidbot.plot.loadFailed": "Não foi possível carregar o gráfico.",
   "plugin.epidbot.code.copy": "Copiar",
   "plugin.epidbot.code.copied": "Copiado",
+
+  "plugin.epidbot.results.title": "Adicionar ao mapa",
+  "plugin.epidbot.results.features": "{{count}} elementos",
+  "plugin.epidbot.results.addToMap": "Adicionar ao mapa",
+  "plugin.epidbot.results.added": "Adicionado ✓",
+  "plugin.epidbot.results.download": "Baixar .geojson",
+  "plugin.epidbot.results.addTile": "Adicionar como camada de tiles",
+  "plugin.epidbot.results.addFailed": "Não foi possível adicionar a camada: {{reason}}",
+  "plugin.epidbot.results.styleFailed":
+    "A camada foi adicionada, mas o estilo não pôde ser aplicado.",
 };

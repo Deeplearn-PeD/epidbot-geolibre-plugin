@@ -21,6 +21,11 @@ export interface FakeApp {
   /** Features reported by getSelectedFeatures (mutable in tests). */
   selectedFeatures: GeoLibreFeatureInput[];
   selectedLayerId: string | null;
+  /** Layers added through addGeoJsonLayer / addTileLayer. */
+  addedLayers: Array<{ name: string; data: GeoLibreFeatureCollection }>;
+  addedTiles: Array<{ name: string; url: string }>;
+  /** Active renderer reported by getMapRenderer. */
+  renderer: "maplibre" | "mapbox" | "cesium" | "arcgis";
 }
 
 export function createFakeApp(): FakeApp {
@@ -32,6 +37,9 @@ export function createFakeApp(): FakeApp {
   const closedPanels: string[] = [];
   const selectedFeatures: GeoLibreFeatureInput[] = [];
   let selectedLayerId: string | null = null;
+  const addedLayers: Array<{ name: string; data: GeoLibreFeatureCollection }> = [];
+  const addedTiles: Array<{ name: string; url: string }> = [];
+  let renderer: FakeApp["renderer"] = "maplibre";
 
   const store: GeoLibrePluginCredentials = {
     get: (name) => credentials.get(name) ?? "",
@@ -91,8 +99,17 @@ export function createFakeApp(): FakeApp {
     },
     getSelectedFeatures: () => selectedFeatures,
     getSelectedLayerId: () => selectedLayerId,
-    addGeoJsonLayer: () => "layer-id",
-  } as GeoLibreAppAPI;
+    addGeoJsonLayer: (name: string, data: GeoLibreFeatureCollection) => {
+      addedLayers.push({ name, data });
+      return `layer-${addedLayers.length}`;
+    },
+    importLayerStyle: () => ({ ok: true }),
+    addTileLayer: (name: string, url: string) => {
+      addedTiles.push({ name, url });
+      return `tile-${addedTiles.length}`;
+    },
+    getMapRenderer: () => renderer,
+  } as unknown as GeoLibreAppAPI;
 
   return {
     app,
@@ -108,6 +125,14 @@ export function createFakeApp(): FakeApp {
     },
     get selectedLayerId() {
       return selectedLayerId;
+    },
+    addedLayers,
+    addedTiles,
+    set renderer(value: FakeApp["renderer"]) {
+      renderer = value;
+    },
+    get renderer() {
+      return renderer;
     },
   };
 }

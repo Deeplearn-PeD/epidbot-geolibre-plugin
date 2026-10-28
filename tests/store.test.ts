@@ -125,4 +125,26 @@ describe("sanitizeProjectState", () => {
     });
     expect(JSON.stringify(state)).not.toContain("SECRET");
   });
+
+  it("sanitizes the result-layer registry", () => {
+    const valid = {
+      layerId: "l1",
+      name: "EpidBot · q",
+      kind: "geojson",
+      question: "q",
+      addedAt: "2026-10-28T00:00:00.000Z",
+    };
+    const state = sanitizeProjectState({
+      version: 1,
+      resultLayers: [valid, { junk: true }, null, { ...valid, kind: "wrong" }],
+    });
+    expect(state.resultLayers).toEqual([valid]);
+
+    const capped = sanitizeProjectState({
+      version: 1,
+      resultLayers: Array.from({ length: 60 }, (_, i) => ({ ...valid, layerId: `l${i}` })),
+    });
+    expect(capped.resultLayers).toHaveLength(50);
+    expect(capped.resultLayers[0].layerId).toBe("l10");
+  });
 });

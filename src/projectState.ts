@@ -1,4 +1,4 @@
-import type { EpidBotSettings } from "./types";
+import type { EpidBotSettings, ResultLayerRecord } from "./types";
 
 /** The plugin's project state: session binding and non-secret preferences.
  * Serialized through getProjectState/applyProjectState; the registry entry
@@ -9,8 +9,10 @@ export interface EpidBotProjectState {
   settings: EpidBotSettings;
   /** Chat session bound to this project, or null for "new on first ask". */
   sessionId: number | null;
+  /** Layers added by the plugin from answers (provenance records). */
+  resultLayers: ResultLayerRecord[];
 }
 
 export function newProjectState(settings: EpidBotSettings): EpidBotProjectState {
-  return { version: 1, settings: { ...settings }, sessionId: null };
+  return { version: 1, settings: { ...settings }, sessionId: null, resultLayers: [] };
 }

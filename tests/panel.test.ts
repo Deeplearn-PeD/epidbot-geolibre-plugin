@@ -28,6 +28,7 @@ interface Harness {
   };
   settings: EpidBotSettings;
   onSettingsChange: ReturnType<typeof vi.fn>;
+  onLayerAdded: ReturnType<typeof vi.fn>;
   /** Mutable context payload returned by the buildContext stub. */
   context: { payload: MapContextPayload | null };
 }
@@ -56,6 +57,7 @@ function harness({ withKey = true }: { withKey?: boolean } = {}): Harness {
   const onSettingsChange = vi.fn((next: EpidBotSettings) => {
     Object.assign(settings, next);
   });
+  const onLayerAdded = vi.fn();
   const context: { payload: MapContextPayload | null } = { payload: { ...SAMPLE_CONTEXT } };
 
   const panel = new EpidBotPanel(fake.app, client as unknown as EpidBotClient, t, {
@@ -63,12 +65,13 @@ function harness({ withKey = true }: { withKey?: boolean } = {}): Harness {
     onSettingsChange,
     getApiKey: () => fake.credentials.get("api-key") ?? "",
     buildContext: () => context.payload,
+    onLayerAdded,
   });
 
   const container = document.createElement("div");
   document.body.appendChild(container);
   panel.attach(container);
-  return { fake, panel, client, settings, onSettingsChange, context };
+  return { fake, panel, client, settings, onSettingsChange, onLayerAdded, context };
 }
 
 function composer(): { input: HTMLTextAreaElement; form: HTMLFormElement } {
@@ -299,6 +302,97 @@ describe("map context (F2)", () => {
       "not available",
     );
     expect(composer().input.value).toBe("");
+  });
+});
+
+describe("results on the map (F3)", () => {
+  const GEOJSON_ANSWER = [
+    "Here are the dengue cases by municipality:",
+    "",
+    "```geojson",
+    JSON.stringify({
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+          properties: { casos: 10, nome: "A" },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Polygon", coordinates: [[[2, 0], [3, 0], [3, 1], [2, 0]]] },
+          properties: { casos: 30, nome: "B" },
+        },
+      ],
+    }),
+    "```",
+  ].join("\n");
+
+  async function askWithContent(content: string) {
+    const h = harness();
+    h.client.ask.mockResolvedValueOnce({
+      sessionId: null,
+      content,
+      images: [],
+    });
+    await submitQuestion(h.panel, "q");
+    await flush();
+    return h;
+  }
+
+  it("renders an Add-to-map card for a GeoJSON answer", async () => {
+    await askWithContent(GEOJSON_ANSWER);
+    const card = document.querySelector(".epidbot-result");
+    expect(card).not.toBeNull();
+    expect(card?.textContent).toContain("2 features");
+    expect(card?.textContent).toContain("Polygon ×2");
+    const buttons = Array.from(card!.querySelectorAll("button")).map((b) => b.textContent);
+    expect(buttons).toContain("Add to map");
+    expect(buttons).toContain("Download .geojson");
+  });
+
+  it("adds the layer with a plugin name, style and provenance record", async () => {
+    const { fake, onLayerAdded } = await askWithContent(GEOJSON_ANSWER);
+    const add = Array.from(document.querySelectorAll<HTMLButtonElement>(".epidbot-result button")).find(
+      (b) => b.textContent === "Add to map",
+    )!;
+    add.click();
+    await flush();
+    expect(fake.addedLayers).toHaveLength(1);
+    expect(fake.addedLayers[0].name.startsWith("EpidBot · ")).toBe(true);
+    expect(fake.addedLayers[0].data.features).toHaveLength(2);
+    expect(onLayerAdded).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "geojson", layerId: "layer-1" }),
+    );
+    expect(add.disabled).toBe(true);
+    expect(add.textContent).toBe("Added ✓");
+  });
+
+  it("offers tile URLs as tile layers", async () => {
+    const { fake } = await askWithContent(
+      "You can load the data from https://tiles.example.com/dengue/{z}/{x}/{y}.png",
+    );
+    const add = Array.from(document.querySelectorAll<HTMLButtonElement>(".epidbot-result button")).find(
+      (b) => b.textContent === "Add as tile layer",
+    )!;
+    add.click();
+    await flush();
+    expect(fake.addedTiles).toHaveLength(1);
+    expect(fake.addedTiles[0].url).toContain("{z}/{x}/{y}");
+  });
+
+  it("hides map actions on non-2D renderers", async () => {
+    const h = harness();
+    h.fake.renderer = "cesium";
+    h.client.ask.mockResolvedValueOnce({ sessionId: null, content: GEOJSON_ANSWER, images: [] });
+    await submitQuestion(h.panel, "q");
+    await flush();
+    expect(document.querySelector(".epidbot-result")).toBeNull();
+  });
+
+  it("shows no cards when the answer has no valid map blocks", async () => {
+    await askWithContent("```geojson\n{broken\n```");
+    expect(document.querySelector(".epidbot-result")).toBeNull();
   });
 });
 

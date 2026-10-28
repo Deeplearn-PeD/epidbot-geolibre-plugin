@@ -23,12 +23,19 @@ import {
   saveApiKey,
   type ApiKeySaveResult,
 } from "../settings/store";
-import type { ChatTurn, EpidBotSettings } from "../types";
+import type { ChatTurn, EpidBotSettings, ResultLayerRecord } from "../types";
 import {
   attachContext,
   buildContextText,
   type MapContextPayload,
 } from "../api/mapContext";
+import {
+  extractResultBlocks,
+  geometrySummary,
+  type GeoJsonResultBlock,
+  type LayerUrlResultBlock,
+} from "../api/results";
+import { styleFor } from "../results/style";
 import { renderMarkdown } from "./markdown";
 
 export interface PanelCallbacks {
@@ -37,6 +44,8 @@ export interface PanelCallbacks {
   getApiKey(): string;
   /** Collect the map context payload (the entry point binds buildMapContext). */
   buildContext?: () => MapContextPayload | null;
+  /** Called after a result layer reaches the map (provenance record). */
+  onLayerAdded?: (record: ResultLayerRecord) => void;
 }
 
 interface ErrorInfo {
@@ -507,7 +516,7 @@ export class EpidBotPanel {
         images: result.images,
       };
       this.turns.push(turn);
-      this.renderAssistantInto(pending, turn);
+      this.renderAssistantInto(pending, turn, text);
       if (result.sessionId !== null) this.setSessionId(result.sessionId);
       void this.refreshSessions();
     } catch (err) {
@@ -563,9 +572,13 @@ export class EpidBotPanel {
       this.transcript.appendChild(this.buildWelcome());
       return;
     }
-    for (const turn of this.turns) {
+    for (let i = 0; i < this.turns.length; i += 1) {
+      const turn = this.turns[i];
       const bubble = this.appendBubble(turn.role, turn.role === "user" ? turn.text : undefined);
-      if (turn.role === "assistant") this.renderAssistantInto(bubble, turn);
+      if (turn.role === "assistant") {
+        const question = this.turns[i - 1]?.role === "user" ? this.turns[i - 1].text : "";
+        this.renderAssistantInto(bubble, turn, question);
+      }
     }
     this.scrollToEnd();
   }
@@ -606,7 +619,7 @@ export class EpidBotPanel {
     return bubble;
   }
 
-  private renderAssistantInto(bubble: HTMLElement, turn: ChatTurn): void {
+  private renderAssistantInto(bubble: HTMLElement, turn: ChatTurn, question = ""): void {
     bubble.classList.remove("epidbot-msg-pending");
     bubble.replaceChildren();
     if (turn.text) {
@@ -617,7 +630,147 @@ export class EpidBotPanel {
     for (const ref of turn.images) {
       bubble.appendChild(this.buildPlotCard(ref));
     }
+    if (turn.text && this.canWriteToMap()) {
+      const cards = this.buildResultCards(turn.text, question);
+      if (cards) bubble.appendChild(cards);
+    }
     this.scrollToEnd();
+  }
+
+  /** Map-writing actions are offered on the 2D renderers only; on
+   * cesium/arcgis the chat works and the cards stay hidden. A host without
+   * getMapRenderer is assumed to be 2D. */
+  private canWriteToMap(): boolean {
+    const renderer = this.app.getMapRenderer?.();
+    return renderer === undefined || renderer === "maplibre" || renderer === "mapbox";
+  }
+
+  /** "Add to the map" cards for GeoJSON blocks and data URLs found in an
+   * answer. Null when the answer has none. */
+  private buildResultCards(answerText: string, question: string): HTMLElement | null {
+    const blocks = extractResultBlocks(answerText);
+    if (blocks.length === 0) return null;
+    const wrap = el("div", "epidbot-results");
+    const title = el("div", "epidbot-results-title");
+    this.bindText(title, "results.title");
+    wrap.appendChild(title);
+    let index = 0;
+    for (const block of blocks) {
+      index += 1;
+      const card =
+        block.kind === "geojson"
+          ? this.buildGeoJsonCard(block, question, index)
+          : this.buildLayerUrlCard(block, question, index);
+      if (card) wrap.appendChild(card);
+    }
+    return wrap.children.length > 1 ? wrap : null;
+  }
+
+  private layerName(question: string, index: number): string {
+    const trimmed = question.trim().replace(/\s+/g, " ");
+    const base = trimmed.length > 40 ? `${trimmed.slice(0, 40)}…` : trimmed;
+    const label = base || `result ${index}`;
+    return `EpidBot · ${label}`;
+  }
+
+  private buildGeoJsonCard(
+    block: GeoJsonResultBlock,
+    question: string,
+    index: number,
+  ): HTMLElement {
+    const card = el("div", "epidbot-result");
+    const title = el("div", "epidbot-result-title");
+    title.textContent = `GeoJSON · ${this.t("results.features", { count: block.featureCount })} · ${geometrySummary(block.geometryTypes)}`;
+    const actions = el("div", "epidbot-result-actions");
+    const add = el("button", "epidbot-button epidbot-button-primary");
+    add.type = "button";
+    this.bindText(add, "results.addToMap");
+    add.addEventListener("click", () => {
+      const name = this.layerName(question, index);
+      try {
+        const layerId = this.app.addGeoJsonLayer(name, block.fc);
+        const styled = this.app.importLayerStyle?.(layerId, styleFor(block.fc));
+        if (styled && !styled.ok) {
+          this.flashStatus(this.t("results.styleFailed"));
+        }
+        this.cb.onLayerAdded?.({
+          layerId,
+          name,
+          kind: "geojson",
+          question,
+          addedAt: new Date().toISOString(),
+        });
+        add.disabled = true;
+        this.setText(add, "results.added");
+      } catch (err) {
+        this.flashStatus(
+          this.t("results.addFailed", {
+            reason: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    });
+    const download = el("button", "epidbot-button epidbot-button-secondary");
+    download.type = "button";
+    this.bindText(download, "results.download");
+    download.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(block.fc)], {
+        type: "application/geo+json",
+      });
+      const url = URL.createObjectURL(blob);
+      this.objectUrls.push(url);
+      const link = el("a");
+      link.href = url;
+      link.download = `epidbot-result-${index}.geojson`;
+      link.click();
+    });
+    actions.append(add, download);
+    card.append(title, actions);
+    return card;
+  }
+
+  private buildLayerUrlCard(
+    block: LayerUrlResultBlock,
+    question: string,
+    index: number,
+  ): HTMLElement | null {
+    // Tile layers are an optional capability; without them the card is noise.
+    if (!this.app.addTileLayer) return null;
+    const card = el("div", "epidbot-result");
+    const title = el("div", "epidbot-result-title");
+    title.textContent = `${block.urlKind === "tiles" ? "Tiles" : "Dataset"} · ${block.url}`;
+    const actions = el("div", "epidbot-result-actions");
+    const add = el("button", "epidbot-button epidbot-button-primary");
+    add.type = "button";
+    this.bindText(add, "results.addTile");
+    add.addEventListener("click", () => {
+      try {
+        const name = this.layerName(question, index);
+        const layerId = this.app.addTileLayer?.(name, block.url, {
+          attribution: "Added by EpidBot",
+        });
+        if (layerId) {
+          this.cb.onLayerAdded?.({
+            layerId,
+            name,
+            kind: "url",
+            question,
+            addedAt: new Date().toISOString(),
+          });
+        }
+        add.disabled = true;
+        this.setText(add, "results.added");
+      } catch (err) {
+        this.flashStatus(
+          this.t("results.addFailed", {
+            reason: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    });
+    actions.appendChild(add);
+    card.append(title, actions);
+    return card;
   }
 
   private buildPlotCard(imageRef: string): HTMLElement {

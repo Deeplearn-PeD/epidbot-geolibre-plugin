@@ -136,6 +136,12 @@ export interface GeoLibreAppAPI {
 
   // -- Map writing (2D renderers; hidden on cesium/arcgis) -------------------
   addGeoJsonLayer: (name: string, data: GeoLibreFeatureCollection, sourcePath?: string) => string;
+  /** Dress a layer with an SLD, QGIS QML or Mapbox GL style JSON (detected
+   * from the content); merged over the layer's current style. */
+  importLayerStyle?: (
+    layerId: string,
+    text: string,
+  ) => { ok: boolean; reason?: string; warnings?: string[] };
   updateGeoJsonLayer?: (layerId: string, data: GeoLibreFeatureCollection) => boolean;
   removeLayer?: (layerId: string) => void;
   setLayerVisibility?: (layerId: string, visible: boolean) => void;

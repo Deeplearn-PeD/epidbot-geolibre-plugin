@@ -85,4 +85,14 @@ export const en: Record<string, string> = {
   "plugin.epidbot.plot.loadFailed": "Chart could not be loaded.",
   "plugin.epidbot.code.copy": "Copy",
   "plugin.epidbot.code.copied": "Copied",
+
+  "plugin.epidbot.results.title": "Add to the map",
+  "plugin.epidbot.results.features": "{{count}} features",
+  "plugin.epidbot.results.addToMap": "Add to map",
+  "plugin.epidbot.results.added": "Added ✓",
+  "plugin.epidbot.results.download": "Download .geojson",
+  "plugin.epidbot.results.addTile": "Add as tile layer",
+  "plugin.epidbot.results.addFailed": "Could not add the layer: {{reason}}",
+  "plugin.epidbot.results.styleFailed":
+    "The layer was added, but its style could not be applied.",
 };

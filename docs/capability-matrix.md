@@ -42,6 +42,9 @@ optional chaining.
 - [x] CORS preflight against `api.epidbot.kwar-ai.com.br` re-verified from
       `Origin: https://geolibre.app` (2026-10-28: 200, origin echoed,
       `x-api-key,content-type` allowed, credentials allowed)
+- [x] F0–F3 host members exercised at unit level against a fake host
+      (panels, menus, credentials, i18n, selection, renderer gating,
+      addGeoJsonLayer/importLayerStyle/addTileLayer) — 125 tests
 - [ ] Members exercised in GeoLibre Desktop v3.5.x (manual step: install the
       zip built by `npm run package:geolibre`, restart, open the panel) —
       **pending, requires a desktop session**

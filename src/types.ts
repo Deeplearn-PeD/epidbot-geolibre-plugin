@@ -2,6 +2,17 @@
 
 export type AnswerLocale = "en" | "pt-BR";
 
+/** One EpidBot-made layer, recorded for provenance ("which layer came from
+ * which question"). The layer itself persists in the host project; this
+ * record only documents its origin. */
+export interface ResultLayerRecord {
+  layerId: string;
+  name: string;
+  kind: "geojson" | "url";
+  question: string;
+  addedAt: string;
+}
+
 /** Non-secret preferences. The API key never lives here — it goes to the
  * host credential store (see settings/store.ts). */
 export interface EpidBotSettings {

@@ -5,7 +5,12 @@
 
 import { DEFAULT_SERVER_URL, normalizeServerUrl } from "../api/client";
 import type { GeoLibreAppAPI } from "../lib/geolibre/host-api";
-import { DEFAULT_SETTINGS, type AnswerLocale, type EpidBotSettings } from "../types";
+import {
+  DEFAULT_SETTINGS,
+  type AnswerLocale,
+  type EpidBotSettings,
+  type ResultLayerRecord,
+} from "../types";
 import type { EpidBotProjectState } from "../projectState";
 
 /** Credential name; the host stores it as `plugin.epidbot.api-key`. */
@@ -55,6 +60,34 @@ export function sanitizeSettings(value: unknown): EpidBotSettings {
   };
 }
 
+export const MAX_RESULT_LAYERS = 50;
+
+/** Validate a provenance record; null when the shape is wrong. */
+function sanitizeResultLayer(value: unknown): ResultLayerRecord | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.layerId !== "string" || !record.layerId) return null;
+  if (typeof record.name !== "string" || !record.name) return null;
+  if (record.kind !== "geojson" && record.kind !== "url") return null;
+  if (typeof record.question !== "string") return null;
+  if (typeof record.addedAt !== "string") return null;
+  return {
+    layerId: record.layerId,
+    name: record.name,
+    kind: record.kind,
+    question: record.question,
+    addedAt: record.addedAt,
+  };
+}
+
+function sanitizeResultLayers(value: unknown): ResultLayerRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(sanitizeResultLayer)
+    .filter((record): record is ResultLayerRecord => record !== null)
+    .slice(-MAX_RESULT_LAYERS);
+}
+
 /** Restore project state; unknown or hostile input falls back to defaults.
  * A stored apiKey (now or ever) is deliberately dropped: secrets never live
  * in project files. */
@@ -63,6 +96,7 @@ export function sanitizeProjectState(value: unknown): EpidBotProjectState {
     version: 1,
     settings: { ...DEFAULT_SETTINGS, serverUrl: DEFAULT_SERVER_URL },
     sessionId: null,
+    resultLayers: [],
   };
   if (!value || typeof value !== "object" || Array.isArray(value)) return fallback;
   const record = value as Record<string, unknown>;
@@ -76,5 +110,6 @@ export function sanitizeProjectState(value: unknown): EpidBotProjectState {
     version: 1,
     settings: sanitizeSettings(record.settings),
     sessionId,
+    resultLayers: sanitizeResultLayers(record.resultLayers),
   };
 }
