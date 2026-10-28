@@ -81,11 +81,24 @@ describe("sanitizeSettings", () => {
     const result = sanitizeSettings({ serverUrl: "https://x", apiKey: "SECRET", hack: true });
     expect(Object.keys(result).sort()).toEqual([
       "answerLocale",
+      "artifactUploads",
       "attachMapContext",
+      "inlineBudgetKb",
       "pollIntervalSec",
       "serverUrl",
     ]);
     expect(JSON.stringify(result)).not.toContain("SECRET");
+  });
+
+  it("sanitizes the attachment budget and the artifact-upload switch", () => {
+    expect(sanitizeSettings({}).inlineBudgetKb).toBe(DEFAULT_SETTINGS.inlineBudgetKb);
+    expect(sanitizeSettings({ inlineBudgetKb: "128" }).inlineBudgetKb).toBe(128);
+    expect(sanitizeSettings({ inlineBudgetKb: -5 }).inlineBudgetKb).toBe(
+      DEFAULT_SETTINGS.inlineBudgetKb,
+    );
+    expect(sanitizeSettings({ inlineBudgetKb: 99999 }).inlineBudgetKb).toBe(2048);
+    expect(sanitizeSettings({}).artifactUploads).toBe(false);
+    expect(sanitizeSettings({ artifactUploads: true }).artifactUploads).toBe(true);
   });
 });
 

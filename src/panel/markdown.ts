@@ -23,6 +23,9 @@ export interface MarkdownOptions {
   /** Called for ![alt](url) images. Returns the element to insert (or null
    * to skip). The panel uses it to load plot images with authentication. */
   resolveImage?: (url: string, alt: string) => HTMLElement | null;
+  /** Localized labels for the framed code blocks' copy button. Copy is only
+   * wired when both are provided. */
+  codeCopyLabels?: { copy: string; copied: string };
 }
 
 /** Render inline markdown into a fragment; plain text stays plain text. */
@@ -82,12 +85,40 @@ function createBlockBuilder(opts: MarkdownOptions): BlockBuilder {
   const fragment = document.createDocumentFragment();
 
   const appendCode = (lang: string, code: string) => {
+    // Framed code box with a copy button (QGIS 0.2.0 parity).
+    const wrapper = document.createElement("div");
+    wrapper.className = "epidbot-code";
+    const bar = document.createElement("div");
+    bar.className = "epidbot-code-bar";
+    if (lang) {
+      const tag = document.createElement("span");
+      tag.className = "epidbot-code-lang";
+      tag.textContent = lang;
+      bar.appendChild(tag);
+    }
     const pre = document.createElement("pre");
     const codeEl = document.createElement("code");
-    if (lang) codeEl.className = `language-${lang}`;
+    codeEl.className = lang ? `language-${lang}` : "";
     codeEl.textContent = code;
     pre.appendChild(codeEl);
-    fragment.appendChild(pre);
+    if (opts.codeCopyLabels && navigator.clipboard) {
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.className = "epidbot-button epidbot-button-secondary epidbot-code-copy";
+      copy.textContent = opts.codeCopyLabels.copy;
+      copy.addEventListener("click", () => {
+        void navigator.clipboard.writeText(code).then(() => {
+          copy.textContent = opts.codeCopyLabels!.copied;
+          window.setTimeout(() => {
+            copy.textContent = opts.codeCopyLabels!.copy;
+          }, 1500);
+        });
+      });
+      bar.appendChild(copy);
+    }
+    if (bar.childElementCount > 0) wrapper.appendChild(bar);
+    wrapper.appendChild(pre);
+    fragment.appendChild(wrapper);
   };
 
   const appendFromLines = (sourceLines: string[]) => {

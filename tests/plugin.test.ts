@@ -7,9 +7,13 @@ import { createFakeApp } from "./fake-app";
 import type { GeoLibreAppAPI } from "../src/lib/geolibre/host-api";
 
 const root = process.cwd();
-const manifest = JSON.parse(
-  readFileSync(join(root, "geolibre-plugin", "plugin.json"), "utf8"),
-) as { id: string; name: string; version: string; entry: string; style: string };
+const manifest = JSON.parse(readFileSync(join(root, "geolibre-plugin", "plugin.json"), "utf8")) as {
+  id: string;
+  name: string;
+  version: string;
+  entry: string;
+  style: string;
+};
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
   version: string;
 };
@@ -83,9 +87,7 @@ describe("lifecycle", () => {
 
   it("keeps state valid when applied before activation", () => {
     const fake = createFakeApp();
-    expect(() =>
-      plugin.applyProjectState?.(fake.app, { version: 1, garbage: true }),
-    ).not.toThrow();
+    expect(() => plugin.applyProjectState?.(fake.app, { version: 1, garbage: true })).not.toThrow();
     const state = plugin.getProjectState?.() as { version: number; sessionId: number | null };
     expect(state.version).toBe(1);
     expect(state.sessionId).toBeNull();

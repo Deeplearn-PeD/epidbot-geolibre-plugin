@@ -58,6 +58,8 @@ export interface AskOptions {
   onStatus?: (jobId: string) => void;
   /** Called once the job is accepted: (jobId, effectiveSessionId). */
   onSubmitted?: (jobId: string, sessionId: number | null) => void;
+  /** Ids of previously uploaded layer artifacts referenced by the message. */
+  artifactIds?: number[];
 }
 
 export interface ChatResult {
@@ -73,9 +75,12 @@ export function normalizeServerUrl(url: string): string {
 }
 
 function errorForStatus(status: number, detail: string): EpidBotApiError {
-  if (status === 401) return new EpidBotAuthError(`EpidBot API error (HTTP 401): ${detail}`, { status, detail });
-  if (status === 403) return new EpidBotPlanError(`EpidBot API error (HTTP 403): ${detail}`, { status, detail });
-  if (status === 429) return new EpidBotQuotaError(`EpidBot API error (HTTP 429): ${detail}`, { status, detail });
+  if (status === 401)
+    return new EpidBotAuthError(`EpidBot API error (HTTP 401): ${detail}`, { status, detail });
+  if (status === 403)
+    return new EpidBotPlanError(`EpidBot API error (HTTP 403): ${detail}`, { status, detail });
+  if (status === 429)
+    return new EpidBotQuotaError(`EpidBot API error (HTTP 429): ${detail}`, { status, detail });
   return new EpidBotApiError(`EpidBot API error (HTTP ${status}): ${detail}`, { status, detail });
 }
 
@@ -101,9 +106,7 @@ export class EpidBotClient {
     this.retryBaseDelayMs = opts.retryBaseDelayMs ?? 500;
     this.fetchImpl = opts.fetchImpl ?? ((...args) => globalThis.fetch(...args));
     this.passSignalToFetch = opts.passSignalToFetch ?? true;
-    this.sleep =
-      opts.sleep ??
-      ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.sleep = opts.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   }
 
   setServerUrl(url: string): void {
@@ -270,6 +273,9 @@ export class EpidBotClient {
         message,
         session_id: opts.sessionId ?? null,
         locale: opts.locale ?? "en",
+        ...(opts.artifactIds && opts.artifactIds.length > 0
+          ? { artifact_ids: opts.artifactIds.map((id) => Math.trunc(id)) }
+          : {}),
       },
       signal: opts.signal,
     });
@@ -376,5 +382,148 @@ export class EpidBotClient {
       return await response.blob();
     }
     throw new EpidBotApiError(`Could not download plot ${filename}.`, { kind: "network" });
+  }
+
+  // ------------------------------------------------------------------
+  // Layer artifacts (QGIS 0.3.0 parity)
+  // ------------------------------------------------------------------
+
+  /** True when the URL points at the configured EpidBot server (artifact and
+   * plot URLs do); such downloads carry the X-API-Key header. */
+  isServerUrl(url: string): boolean {
+    const normalized = normalizeServerUrl(url);
+    if (!this.serverUrl || !normalized) return false;
+    return normalized.startsWith(this.serverUrl + "/") || normalized === this.serverUrl;
+  }
+
+  /** True for EpidBot artifact URLs (…/api/v1/artifacts/{id}) regardless of
+   * which server they point at — downloads need authentication. */
+  static isArtifactUrl(url: string): boolean {
+    try {
+      return new URL(url).pathname.includes(`${API_PREFIX}/artifacts/`);
+    } catch {
+      return false;
+    }
+  }
+
+  /** Upload a serialized layer as a server artifact (multipart POST /artifacts).
+   * Returns the server response; the artifact id is read from `id` or
+   * `artifact_id` by the caller. */
+  async uploadArtifact(
+    blob: Blob,
+    filename: string,
+    contentType = "application/geo+json",
+    signal?: AbortSignal,
+  ): Promise<Record<string, unknown>> {
+    const url = this.endpoint("/artifacts");
+    // No Content-Type header here: the browser sets multipart/form-data with
+    // the boundary; overriding it would corrupt the body. The part's own type
+    // comes from the blob (defaulted to the caller's content type).
+    const part = blob.type ? blob : new Blob([blob], { type: contentType });
+    const form = new FormData();
+    form.append("file", part, filename);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, {
+        method: "POST",
+        headers: this.authHeaders(),
+        body: form,
+        signal: this.passSignalToFetch ? signal : undefined,
+      });
+    } catch (err) {
+      if (signal?.aborted) throw new ChatCancelledError("Chat request cancelled.");
+      throw new EpidBotApiError(
+        `Artifact upload to ${url} failed: ${err instanceof Error ? err.message : String(err)}`,
+        { kind: "network" },
+      );
+    }
+    if (response.status >= 400) {
+      const detail = await this.errorDetail(response);
+      throw errorForStatus(response.status, `Artifact upload failed: ${detail}`);
+    }
+    const text = await response.text();
+    if (!text) return {};
+    try {
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      throw new EpidBotApiError("Non-JSON response from artifact upload.", { kind: "http" });
+    }
+  }
+
+  /** Extract the artifact id from an upload/URL response (`id` or
+   * `artifact_id`); null when the server sent neither. */
+  static artifactIdFrom(response: Record<string, unknown>): number | null {
+    for (const key of ["id", "artifact_id"]) {
+      const value = response[key];
+      const num = Number(value);
+      if (value !== undefined && value !== null && Number.isFinite(num)) return num;
+    }
+    return null;
+  }
+
+  /** Download a (possibly authenticated) resource as a blob. EpidBot artifact
+   * and same-server URLs carry the X-API-Key header; foreign URLs stay clean.
+   * Bodies larger than maxBytes (default 64 MB) are rejected mid-stream. */
+  async downloadWithAuth(
+    url: string,
+    opts: { signal?: AbortSignal; maxBytes?: number } = {},
+  ): Promise<Blob> {
+    const maxBytes = opts.maxBytes ?? 64 * 1024 * 1024;
+    const withAuth = EpidBotClient.isArtifactUrl(url) || this.isServerUrl(url);
+    const attempts = this.maxRetries + 1;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      throwIfAborted(opts.signal);
+      let response: Response;
+      try {
+        response = await this.fetchImpl(url, {
+          method: "GET",
+          headers: withAuth ? this.authHeaders() : {},
+          signal: this.passSignalToFetch ? opts.signal : undefined,
+        });
+      } catch (err) {
+        if (opts.signal?.aborted) throw new ChatCancelledError("Chat request cancelled.");
+        if (attempt + 1 < attempts) {
+          await this.sleep(this.retryBaseDelayMs * 2 ** attempt);
+          continue;
+        }
+        throw new EpidBotApiError(
+          `Could not download ${url}: ${err instanceof Error ? err.message : String(err)}`,
+          { kind: "network" },
+        );
+      }
+      if (RETRYABLE_STATUS_CODES.has(response.status) && attempt + 1 < attempts) {
+        await this.sleep(this.retryBaseDelayMs * 2 ** attempt);
+        continue;
+      }
+      if (response.status >= 400) {
+        const detail = await this.errorDetail(response);
+        throw errorForStatus(response.status, detail);
+      }
+      // Guard the size while reading; fetch has no native byte cap.
+      const length = Number(response.headers.get("content-length") ?? "");
+      if (Number.isFinite(length) && length > maxBytes) {
+        throw new EpidBotApiError(
+          `Download larger than ${Math.round(maxBytes / 1024 / 1024)} MB: ${url}`,
+        );
+      }
+      const reader = response.body?.getReader();
+      if (!reader) return await response.blob();
+      const chunks: BlobPart[] = [];
+      let received = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        received += value.byteLength;
+        if (received > maxBytes) {
+          void reader.cancel();
+          throw new EpidBotApiError(
+            `Download larger than ${Math.round(maxBytes / 1024 / 1024)} MB: ${url}`,
+          );
+        }
+        chunks.push(value);
+      }
+      return new Blob(chunks);
+    }
+    throw new EpidBotApiError(`Could not download ${url}.`, { kind: "network" });
   }
 }

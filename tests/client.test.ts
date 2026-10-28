@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  DEFAULT_SERVER_URL,
-  EpidBotClient,
-  normalizeServerUrl,
-} from "../src/api/client";
+import { DEFAULT_SERVER_URL, EpidBotClient, normalizeServerUrl } from "../src/api/client";
 import {
   ChatCancelledError,
   EpidBotApiError,
@@ -26,9 +22,10 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function makeFetch(
-  script: (call: { url: string; init: RequestInit; index: number }) => Response,
-): { fetchImpl: typeof fetch; calls: RecordedCall[] } {
+function makeFetch(script: (call: { url: string; init: RequestInit; index: number }) => Response): {
+  fetchImpl: typeof fetch;
+  calls: RecordedCall[];
+} {
   const calls: RecordedCall[] = [];
   const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
     const call = { url: String(url), init: init ?? {}, index: calls.length };
@@ -116,9 +113,7 @@ describe("EpidBotClient.ask", () => {
   });
 
   it("maps 401 to EpidBotAuthError with the server detail", async () => {
-    const { fetchImpl } = makeFetch(() =>
-      jsonResponse({ detail: "Invalid API key" }, 401),
-    );
+    const { fetchImpl } = makeFetch(() => jsonResponse({ detail: "Invalid API key" }, 401));
     const client = makeClient(fetchImpl, { maxRetries: 0 });
     await expect(client.ask("q")).rejects.toBeInstanceOf(EpidBotAuthError);
     await expect(client.ask("q")).rejects.toMatchObject({ detail: "Invalid API key" });
@@ -181,9 +176,9 @@ describe("EpidBotClient.ask", () => {
     const client = makeClient(fetchImpl);
     const controller = new AbortController();
     controller.abort();
-    await expect(
-      client.ask("q", { signal: controller.signal }),
-    ).rejects.toBeInstanceOf(ChatCancelledError);
+    await expect(client.ask("q", { signal: controller.signal })).rejects.toBeInstanceOf(
+      ChatCancelledError,
+    );
   });
 
   it("surfaces a failed job with the server's error message", async () => {
@@ -193,7 +188,11 @@ describe("EpidBotClient.ask", () => {
     });
     const client = makeClient(fetchImpl, {});
     await expect(client.ask("q")).rejects.toSatisfy((err: unknown) => {
-      return err instanceof EpidBotApiError && err.kind === "job" && err.message.includes("model exploded");
+      return (
+        err instanceof EpidBotApiError &&
+        err.kind === "job" &&
+        err.message.includes("model exploded")
+      );
     });
   });
 });
@@ -293,9 +292,9 @@ describe("abort-signal transport", () => {
     });
     setTimeout(() => controller.abort(), 5);
 
-    await expect(
-      client.ask("q", { signal: controller.signal }),
-    ).rejects.toBeInstanceOf(ChatCancelledError);
+    await expect(client.ask("q", { signal: controller.signal })).rejects.toBeInstanceOf(
+      ChatCancelledError,
+    );
     // Stopped during the first poll wait instead of running to the timeout.
     expect(calls.length).toBeLessThanOrEqual(2);
     for (const call of calls) {
@@ -323,5 +322,111 @@ describe("poll backoff growth", () => {
     for (let i = 1; i < sleeps.length; i += 1) {
       expect(sleeps[i]).toBeGreaterThanOrEqual(sleeps[i - 1]);
     }
+  });
+});
+
+describe("artifacts and authenticated downloads", () => {
+  it("uploads an artifact as multipart with the API key", async () => {
+    const { fetchImpl, calls } = makeFetch(() => jsonResponse({ id: 42 }));
+    const client = makeClient(fetchImpl);
+    const blob = new Blob(['{"type":"FeatureCollection","features":[]}'], {
+      type: "application/geo+json",
+    });
+    const response = await client.uploadArtifact(blob, "layer.geojson");
+    expect(response).toEqual({ id: 42 });
+    expect(EpidBotClient.artifactIdFrom(response)).toBe(42);
+    const call = calls[0];
+    expect(call.url).toBe(`${DEFAULT_SERVER_URL}/api/v1/artifacts`);
+    expect((call.init.headers as Record<string, string>)["X-API-Key"]).toBe(API_KEY);
+    expect(call.init.body).toBeInstanceOf(FormData);
+  });
+
+  it("reads artifact_id when id is absent, and null when neither", () => {
+    expect(EpidBotClient.artifactIdFrom({ artifact_id: "7" })).toBe(7);
+    expect(EpidBotClient.artifactIdFrom({})).toBeNull();
+  });
+
+  it("sends artifact_ids with the chat payload", async () => {
+    const { fetchImpl, calls } = makeFetch(({ index }) => {
+      if (index === 0) return jsonResponse({ job_id: "j1" });
+      return jsonResponse({ status: "completed", content: "ok", session_id: 1 });
+    });
+    const client = makeClient(fetchImpl);
+    await client.ask("summarize", { artifactIds: [3, 9] });
+    const body = JSON.parse(String(calls[0].init.body)) as Record<string, unknown>;
+    expect(body.artifact_ids).toEqual([3, 9]);
+  });
+
+  it("omits artifact_ids when there are none", async () => {
+    const { fetchImpl, calls } = makeFetch(({ index }) => {
+      if (index === 0) return jsonResponse({ job_id: "j1" });
+      return jsonResponse({ status: "completed", content: "ok", session_id: 1 });
+    });
+    const client = makeClient(fetchImpl);
+    await client.ask("summarize");
+    const body = JSON.parse(String(calls[0].init.body)) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("artifact_ids");
+  });
+
+  it("detects artifact URLs on any host", () => {
+    expect(EpidBotClient.isArtifactUrl(`${DEFAULT_SERVER_URL}/api/v1/artifacts/12`)).toBe(true);
+    expect(EpidBotClient.isArtifactUrl("https://api.epidbot.example/api/v1/artifacts/12/")).toBe(
+      true,
+    );
+    expect(EpidBotClient.isArtifactUrl("https://example.com/data.geojson")).toBe(false);
+    expect(EpidBotClient.isArtifactUrl("not a url")).toBe(false);
+  });
+
+  it("downloads artifact URLs with the API key and rejects oversized bodies", async () => {
+    const fc = JSON.stringify({ type: "FeatureCollection", features: [] });
+    const { fetchImpl, calls } = makeFetch((call) => {
+      if (call.url.endsWith("/api/v1/artifacts/12")) {
+        return new Response(fc, {
+          status: 200,
+          headers: { "Content-Type": "application/geo+json" },
+        });
+      }
+      return new Response(fc, {
+        status: 200,
+        headers: { "Content-Type": "application/geo+json", "Content-Length": "999999999" },
+      });
+    });
+    const client = makeClient(fetchImpl);
+    const blob = await client.downloadWithAuth(`${DEFAULT_SERVER_URL}/api/v1/artifacts/12`);
+    expect(await blob.text()).toBe(fc);
+    expect((calls[0].init.headers as Record<string, string>)["X-API-Key"]).toBe(API_KEY);
+    await expect(
+      client.downloadWithAuth(`${DEFAULT_SERVER_URL}/api/v1/artifacts/99`),
+    ).rejects.toBeInstanceOf(EpidBotApiError);
+  });
+
+  it("downloads foreign URLs without authentication headers", async () => {
+    const { fetchImpl, calls } = makeFetch(
+      () =>
+        new Response('{"type":"FeatureCollection","features":[]}', {
+          status: 200,
+          headers: { "Content-Type": "application/geo+json" },
+        }),
+    );
+    const client = makeClient(fetchImpl);
+    await client.downloadWithAuth("https://example.com/data.geojson");
+    expect(Object.keys(calls[0].init.headers as Record<string, string>)).toEqual([]);
+  });
+
+  it("caps streamed downloads mid-body", async () => {
+    const big = "x".repeat(1000);
+    const { fetchImpl } = makeFetch(
+      () => new Response(big, { status: 200, headers: { "Content-Type": "text/plain" } }),
+    );
+    const client = makeClient(fetchImpl);
+    await expect(
+      client.downloadWithAuth("https://example.com/data.csv", { maxBytes: 100 }),
+    ).rejects.toBeInstanceOf(EpidBotApiError);
+  });
+
+  it("isServerUrl matches the configured server", () => {
+    const client = makeClient(makeFetch(() => jsonResponse({})).fetchImpl);
+    expect(client.isServerUrl(`${DEFAULT_SERVER_URL}/api/v1/sessions/plots/x.png`)).toBe(true);
+    expect(client.isServerUrl("https://example.com/x")).toBe(false);
   });
 });

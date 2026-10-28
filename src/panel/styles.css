@@ -382,3 +382,243 @@
   min-height: 3em;
   max-height: 40vh;
 }
+
+/* Quick prompts + layer attachments */
+
+.epidbot-quickbar {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  padding: 4px 10px 0;
+}
+
+.epidbot-quick-select {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 6px;
+  background: transparent;
+  padding: 3px 6px;
+}
+
+.epidbot-attach-menu {
+  position: relative;
+}
+
+.epidbot-attach-button {
+  user-select: none;
+}
+
+.epidbot-attach-menu summary {
+  list-style: none;
+}
+
+.epidbot-attach-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.epidbot-attach-items {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  padding: 4px;
+  gap: 2px;
+  background: inherit;
+  background-color: var(--epidbot-menu-bg, Canvas);
+  color: inherit;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.epidbot-attach-item {
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.epidbot-attach-item:hover {
+  background: rgba(128, 128, 128, 0.2);
+}
+
+.epidbot-attach-chips {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px 0;
+}
+
+.epidbot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 999px;
+  font-size: 12px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.epidbot-chip-remove {
+  border: none;
+  background: transparent;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+/* Modals (attachment reduction, edit review) */
+
+.epidbot-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.epidbot-panel {
+  position: relative; /* anchor for .epidbot-overlay */
+}
+
+.epidbot-modal {
+  width: min(420px, 92%);
+  max-height: 85%;
+  overflow: auto;
+  background: var(--epidbot-modal-bg, Canvas);
+  color: inherit;
+  border: 1px solid rgba(128, 128, 128, 0.5);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.epidbot-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+.epidbot-modal-title {
+  margin: 0;
+  font-size: 14px;
+}
+
+.epidbot-modal-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.epidbot-modal-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.epidbot-modal-label select {
+  font: inherit;
+  color: inherit;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 6px;
+  background: transparent;
+  padding: 4px 6px;
+}
+
+.epidbot-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.epidbot-modal-actions-column {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.epidbot-modal-error {
+  margin: 0;
+  color: #b3261e;
+  white-space: pre-wrap;
+}
+
+.epidbot-edit-sample {
+  margin: 0;
+  max-height: 140px;
+  overflow: auto;
+  padding: 6px 8px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  white-space: pre;
+}
+
+.epidbot-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.epidbot-edit-caption {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.epidbot-edit-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Framed code blocks with a copy button */
+
+.epidbot-code {
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 6px;
+  margin: 6px 0;
+  overflow: hidden;
+}
+
+.epidbot-code pre {
+  margin: 0;
+  padding: 8px;
+  overflow-x: auto;
+  background: rgba(128, 128, 128, 0.12);
+}
+
+.epidbot-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 8px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+  background: rgba(128, 128, 128, 0.08);
+}
+
+.epidbot-code-lang {
+  font-size: 11px;
+  opacity: 0.7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.epidbot-code-copy {
+  font-size: 11px;
+  padding: 1px 8px;
+}

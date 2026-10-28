@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractEditOps,
   extractResultBlocks,
   geometrySummary,
   isGeoJsonUrl,
@@ -35,9 +36,7 @@ describe("validateGeoJson", () => {
     expect(validateGeoJson("x").ok).toBe(false);
     expect(validateGeoJson(null).ok).toBe(false);
     expect(validateGeoJson([FC]).ok).toBe(false);
-    expect(
-      validateGeoJson({ type: "FeatureCollection", features: [42] }).ok,
-    ).toBe(false);
+    expect(validateGeoJson({ type: "FeatureCollection", features: [42] }).ok).toBe(false);
   });
 
   it("normalizes null properties to {} and null geometry to type none", () => {
@@ -140,5 +139,88 @@ describe("url classifiers", () => {
     expect(isGeoJsonUrl("https://d.com/data.json")).toBe(false); // needs a geo hint
     expect(isGeoJsonUrl("https://d.com/geodata.json")).toBe(true);
     expect(isGeoJsonUrl("https://d.com/page.html")).toBe(false);
+  });
+});
+
+describe("artifact URLs (0.3.0 parity)", () => {
+  it("recognizes artifact URLs regardless of extension or scheme", () => {
+    const blocks = extractResultBlocks(
+      "Download: https://api.epidbot.kwar-ai.com.br/api/v1/artifacts/42.",
+    );
+    expect(blocks).toHaveLength(1);
+    const block = blocks[0] as Extract<(typeof blocks)[number], { kind: "url" }>;
+    expect(block.urlKind).toBe("geojson");
+    expect(block.artifact).toBe(true);
+    expect(block.url.endsWith("/api/v1/artifacts/42")).toBe(true);
+  });
+
+  it("accepts local dev artifact URLs over http", () => {
+    const blocks = extractResultBlocks("Artefato: http://localhost:8000/api/v1/artifacts/7");
+    expect(blocks).toHaveLength(1);
+  });
+
+  it("still requires https for foreign URLs", () => {
+    expect(extractResultBlocks("see http://example.com/data.geojson")).toEqual([]);
+  });
+
+  it("ignores URLs that merely mention artifacts in the query", () => {
+    expect(extractResultBlocks("https://example.com/search?path=/api/v1/artifacts/1")).toEqual([]);
+  });
+});
+
+describe("extractEditOps", () => {
+  it("parses single objects and arrays from epidbot-edit fences", () => {
+    const text = [
+      "Here is the edit:",
+      "```epidbot-edit",
+      JSON.stringify({
+        op: "add_field",
+        field: { name: "pop", type: "integer" },
+        key: "cd_mun",
+        values: { "3304557": 1 },
+      }),
+      "```",
+      "```epidbot-edit",
+      JSON.stringify([
+        {
+          op: "update_field",
+          field: { name: "pop", type: "integer" },
+          key: "fid",
+          values: { "0": 2 },
+        },
+        {
+          op: "update_field",
+          field: { name: "x", type: "integer" },
+          key: "fid",
+          values: { "1": 3 },
+        },
+      ]),
+      "```",
+    ].join("\n");
+    const ops = extractEditOps(text);
+    expect(ops).toHaveLength(3);
+    expect((ops[0] as Record<string, unknown>).op).toBe("add_field");
+  });
+
+  it("skips malformed fences and other languages", () => {
+    const text = [
+      "```epidbot-edit",
+      "{not json",
+      "```",
+      "```epidbot-edit",
+      "",
+      "```",
+      "```json",
+      '{"op": "add_field"}',
+      "```",
+    ].join("\n");
+    expect(extractEditOps(text)).toEqual([]);
+  });
+
+  it("drops non-object entries inside arrays", () => {
+    const text = ["```epidbot-edit", JSON.stringify([1, "x", { op: "add_field" }]), "```"].join(
+      "\n",
+    );
+    expect(extractEditOps(text)).toEqual([{ op: "add_field" }]);
   });
 });

@@ -27,7 +27,9 @@ export interface GeoJsonResultBlock {
 export interface LayerUrlResultBlock {
   kind: "url";
   url: string;
-  urlKind: "tiles" | "geojson";
+  urlKind: "tiles" | "geojson" | "csv";
+  /** True for EpidBot artifact URLs (fetched with the API key). */
+  artifact?: boolean;
 }
 
 export type ResultBlock = GeoJsonResultBlock | LayerUrlResultBlock;
@@ -35,6 +37,39 @@ export type ResultBlock = GeoJsonResultBlock | LayerUrlResultBlock;
 const FENCE_OPEN = /^```([A-Za-z0-9_+-]*)[ \t]*$/;
 const FENCE_CLOSE = /^```\s*$/;
 const URL_RE = /https?:\/\/[^\s<>"`')\]]+/g;
+
+/** Fence language reserved for attribute edit operations (see
+ * api/layerEditor.ts). Parsed separately from geo sources. */
+export const EDIT_FENCE_LANG = "epidbot-edit";
+
+/** EpidBot artifact URLs are loadable layers even without a known extension. */
+const ARTIFACT_PATH = "/api/v1/artifacts/";
+
+/** Iterate fenced blocks (```lang … ```) in document order; runs of an
+ * unterminated fence are passed too (like the QGIS regex). */
+function forEachFence(text: string, visit: (lang: string, code: string) => void): void {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  let lang: string | null = null;
+  let code: string[] = [];
+  for (const line of lines) {
+    if (lang !== null) {
+      if (FENCE_CLOSE.test(line)) {
+        visit(lang, code.join("\n"));
+        lang = null;
+        code = [];
+      } else {
+        code.push(line);
+      }
+      continue;
+    }
+    const open = FENCE_OPEN.exec(line);
+    if (open) {
+      lang = open[1] ?? "";
+      code = [];
+    }
+  }
+  if (lang !== null) visit(lang, code.join("\n"));
+}
 
 export interface Validation {
   ok: boolean;
@@ -131,10 +166,39 @@ export function isGeoJsonUrl(url: string): boolean {
   return /\.json$/i.test(path) && /geo/i.test(url);
 }
 
+/** The id path segment of an EpidBot artifact URL, or null. */
+export function artifactIdFromUrl(url: string): string | null {
+  try {
+    const path = new URL(url).pathname.replace(/\/+$/, "");
+    if (!path.includes(ARTIFACT_PATH)) return null;
+    return path.slice(path.lastIndexOf("/") + 1) || null;
+  } catch {
+    return null;
+  }
+}
+
+/** CSV URLs become spatial layers client-side when coordinate columns exist. */
+export function isCsvUrl(url: string): boolean {
+  const path = url.split("?", 1)[0].split("#", 1)[0];
+  return /\.csv$/i.test(path);
+}
+
 function classifyUrl(url: string): LayerUrlResultBlock | null {
+  // EpidBot artifact URLs are pulled through the authenticated downloader,
+  // so plain http (local dev servers) is acceptable for them alone.
+  const artifactId = artifactIdFromUrl(url);
+  if (artifactId !== null) {
+    return {
+      kind: "url",
+      url: url.replace(/[.,;:!?)'"]+$/, ""),
+      urlKind: "geojson",
+      artifact: true,
+    };
+  }
   if (!url.startsWith("https://")) return null; // only https reaches the map
   if (isTileUrl(url)) return { kind: "url", url, urlKind: "tiles" };
   if (isGeoJsonUrl(url)) return { kind: "url", url, urlKind: "geojson" };
+  if (isCsvUrl(url)) return { kind: "url", url, urlKind: "csv" };
   return null;
 }
 
@@ -187,4 +251,32 @@ export function extractResultBlocks(text: string, maxUrlBlocks = 5): ResultBlock
 /** "Point ×12, Polygon ×3" summary for a result card. */
 export function geometrySummary(types: Array<[string, number]>): string {
   return types.map(([type, count]) => `${type} ×${count}`).join(", ");
+}
+
+/** Extract attribute edit operations from ```epidbot-edit blocks.
+ *
+ * Malformed blocks are skipped (never fail the whole message); structural
+ * validation happens in api/layerEditor.validateEditOp.
+ */
+export function extractEditOps(text: string): unknown[] {
+  const ops: unknown[] = [];
+  forEachFence(text ?? "", (lang, code) => {
+    if (lang.trim().toLowerCase() !== EDIT_FENCE_LANG) return;
+    const content = code.trim();
+    if (!content) return;
+    let data: unknown;
+    try {
+      data = JSON.parse(content);
+    } catch {
+      return;
+    }
+    if (Array.isArray(data)) {
+      ops.push(
+        ...data.filter((item) => item !== null && typeof item === "object" && !Array.isArray(item)),
+      );
+    } else if (data !== null && typeof data === "object") {
+      ops.push(data);
+    }
+  });
+  return ops;
 }

@@ -12,22 +12,88 @@ export const en: Record<string, string> = {
   "plugin.epidbot.menu.ask": "Ask about the map",
   "plugin.epidbot.menu.askExtent": "Ask about this extent",
   "plugin.epidbot.menu.askSelection": "Ask about this selection",
+  "plugin.epidbot.menu.editLayer": "Let EpidBot edit this layer…",
 
-  "plugin.epidbot.prompt.extent":
-    "What public health data is relevant for the current map extent?",
+  "plugin.epidbot.prompt.extent": "What public health data is relevant for the current map extent?",
   "plugin.epidbot.prompt.selection":
     "Summarize the public health characteristics of the selected features.",
   "plugin.epidbot.prompt.noSelection":
     "No features are selected. Select features on the map first.",
   "plugin.epidbot.prompt.noExtent": "The map extent is not available here.",
+  "plugin.epidbot.prompt.editLayer":
+    "Add a new field to this layer with the data you can fetch (e.g. population counts). Join the data by the '{{key}}' field. Use the identifiers attached above as join keys and return the result as an epidbot-edit block.",
+  "plugin.epidbot.prompt.editLayerNoKey":
+    "Add a new field to this layer with the data you can fetch (e.g. population counts). Use the identifiers attached above as join keys and return the result as an epidbot-edit block.",
+
+  "plugin.epidbot.quick.placeholder": "Quick prompts…",
+  "plugin.epidbot.quick.dengue": "Summarize the latest dengue season in Brazil",
+  "plugin.epidbot.quick.malaria": "Which datasets cover malaria in the Amazon?",
+  "plugin.epidbot.quick.layers": "Explain the active layers on my map",
+  "plugin.epidbot.quick.sinan": "How do I download SINAN data for my state?",
+  "plugin.epidbot.quick.population": "What is the population at risk in my map extent?",
+
+  "plugin.epidbot.attach.label": "Attach layer data to the message",
+  "plugin.epidbot.attach.selected": "Attach selected features",
+  "plugin.epidbot.attach.extent": "Attach features in view",
+  "plugin.epidbot.attach.all": "Attach entire layer…",
+  "plugin.epidbot.attach.identifiers": "Attach identifiers only (for edits)",
+  "plugin.epidbot.attach.noLayers": "No layers on the map.",
+  "plugin.epidbot.attach.pickLayer": "Attach layer — choose a layer:",
+  "plugin.epidbot.attach.ok": "OK",
+  "plugin.epidbot.attach.cancel": "Cancel",
+  "plugin.epidbot.attach.preparing": "Preparing attachment…",
+  "plugin.epidbot.attach.unavailable": "Layer attachments are not available on this map renderer.",
+  "plugin.epidbot.attach.remove": "Remove attachment",
+  "plugin.epidbot.attach.chipMeta": "{{count}} features, {{kb}} KB",
+  "plugin.epidbot.attach.tooLargeTitle": "Attachment too large",
+  "plugin.epidbot.attach.tooLarge":
+    "'{{label}}' is {{size}} KB, above the {{budget}} KB inline budget.",
+  "plugin.epidbot.attach.limitExtent": "Limit to current view",
+  "plugin.epidbot.attach.narrowSelection": "Narrow to selected features",
+  "plugin.epidbot.attach.reducePrecision": "Reduce coordinate precision",
+  "plugin.epidbot.attach.uploadArtifact": "Upload as artifact (server)",
+  "plugin.epidbot.attach.statsOnly": "Send statistics only",
+  "plugin.epidbot.attach.dropped":
+    "Attachment dropped — the map context (field names, sample values, counts) will be sent instead.",
+  "plugin.epidbot.attach.failedTitle": "Attachment failed",
+  "plugin.epidbot.attach.uploading": "Uploading artifact…",
+  "plugin.epidbot.attach.uploadFailed": "Artifact upload failed: {{reason}}",
+  "plugin.epidbot.attach.noArtifactId": "The server did not return an artifact id.",
+
+  "plugin.epidbot.edit.title": "EpidBot wants to edit a layer",
+  "plugin.epidbot.edit.intro":
+    "EpidBot proposes the following change to your layer data. Review it carefully — it will modify the attributes.",
+  "plugin.epidbot.edit.review": "Review field edit: {{name}} ({{type}})",
+  "plugin.epidbot.edit.reviewInvalid": "Review field edit (invalid operation)",
+  "plugin.epidbot.edit.invalidOp": "This edit operation is invalid:",
+  "plugin.epidbot.edit.targetLabel": "Target layer",
+  "plugin.epidbot.edit.opAdd": "Add",
+  "plugin.epidbot.edit.opUpdate": "Update",
+  "plugin.epidbot.edit.summary": "{{op}} field {{name}} ({{type}}) — join by {{key}}{{confidence}}",
+  "plugin.epidbot.edit.confidenceFetched": " (values fetched from a data source)",
+  "plugin.epidbot.edit.confidenceEstimated":
+    " (⚠ values ESTIMATED by the model — verify before use)",
+  "plugin.epidbot.edit.noMatchingLayer": "No matching layer found.",
+  "plugin.epidbot.edit.cannotJoin": "Cannot join by this key: {{reason}}",
+  "plugin.epidbot.edit.stats":
+    "Matches {{matched}} of {{total}} values ({{unmatched}} unmatched, {{invalid}} invalid).",
+  "plugin.epidbot.edit.unmatchedKeys": "Unmatched keys: {{keys}}",
+  "plugin.epidbot.edit.moreRows": "… and {{count}} more",
+  "plugin.epidbot.edit.apply": "Apply",
+  "plugin.epidbot.edit.cancel": "Cancel",
+  "plugin.epidbot.edit.applied": "{{op}} '{{field}}' on '{{layer}}': {{matched}} features{{note}}",
+  "plugin.epidbot.edit.unmatchedNote": " ({{count}} keys did not match)",
+  "plugin.epidbot.edit.notApplied": "Edit not applied: {{reason}}",
+  "plugin.epidbot.edit.revert": "Revert",
+  "plugin.epidbot.edit.reverted": "Edit reverted.",
+  "plugin.epidbot.edit.revertFailed": "Could not revert: {{reason}}",
 
   "plugin.epidbot.context.attach": "Attach map context",
   "plugin.epidbot.context.help":
     "Sends the visible layers, the current extent, the CRS and the selection with your question.",
   "plugin.epidbot.context.preview": "Preview context",
   "plugin.epidbot.context.bytes": "{{bytes}} bytes",
-  "plugin.epidbot.context.empty":
-    "Nothing to report — no layers, extent or selection available.",
+  "plugin.epidbot.context.empty": "Nothing to report — no layers, extent or selection available.",
   "plugin.epidbot.context.unavailable": "Map context is not available here.",
 
   "plugin.epidbot.composer.placeholder": "Ask about epidemiological data…",
@@ -92,8 +158,20 @@ export const en: Record<string, string> = {
   "plugin.epidbot.results.addToMap": "Add to map",
   "plugin.epidbot.results.added": "Added ✓",
   "plugin.epidbot.results.download": "Download .geojson",
+  "plugin.epidbot.results.downloadFile": "Download",
   "plugin.epidbot.results.addTile": "Add as tile layer",
   "plugin.epidbot.results.addFailed": "Could not add the layer: {{reason}}",
-  "plugin.epidbot.results.styleFailed":
-    "The layer was added, but its style could not be applied.",
+  "plugin.epidbot.results.styleFailed": "The layer was added, but its style could not be applied.",
+  "plugin.epidbot.results.loading": "Loading '{{name}}' onto the map…",
+  "plugin.epidbot.results.stillLoading": "Still loading the previous dataset…",
+  "plugin.epidbot.results.addedNotice": "Layer '{{name}}' added to the map.",
+  "plugin.epidbot.results.unreadable":
+    "The data could not be read as GeoJSON, and the CSV has no usable coordinate columns.",
+  "plugin.epidbot.results.loadFailed": "Could not load geodata: {{reason}}",
+
+  "plugin.epidbot.settings.inlineBudget": "Inline attachment budget (KiB)",
+  "plugin.epidbot.settings.inlineBudgetHelp":
+    "Layer attachments above this size are reduced or uploaded as artifacts.",
+  "plugin.epidbot.settings.artifactUploads":
+    "Allow layer uploads as server artifacts (requires server support)",
 };

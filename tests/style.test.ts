@@ -9,15 +9,15 @@ import {
   styleFor,
 } from "../src/results/style";
 
-function fc(features: Array<{ geometry: string; properties: Record<string, unknown> }>): GeoLibreFeatureCollection {
+function fc(
+  features: Array<{ geometry: string; properties: Record<string, unknown> }>,
+): GeoLibreFeatureCollection {
   return {
     type: "FeatureCollection",
     features: features.map((f) => ({
       type: "Feature",
       geometry:
-        f.geometry === "none"
-          ? null
-          : ({ type: f.geometry, coordinates: [0, 0] } as unknown),
+        f.geometry === "none" ? null : ({ type: f.geometry, coordinates: [0, 0] } as unknown),
       properties: f.properties,
     })),
   };

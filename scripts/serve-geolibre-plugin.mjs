@@ -5,10 +5,7 @@ import { extname, resolve, sep } from "node:path";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const rootDir = resolve(
-  dirname(dirname(fileURLToPath(import.meta.url))),
-  "geolibre-plugin",
-);
+const rootDir = resolve(dirname(dirname(fileURLToPath(import.meta.url))), "geolibre-plugin");
 const port = Number(process.env.PORT ?? process.argv[2] ?? 8000);
 const host = process.env.HOST ?? "0.0.0.0";
 
@@ -44,13 +41,8 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  const url = new URL(
-    request.url ?? "/",
-    `http://${request.headers.host ?? "localhost"}`,
-  );
-  const pathname = decodeURIComponent(
-    url.pathname === "/" ? "/plugin.json" : url.pathname,
-  );
+  const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+  const pathname = decodeURIComponent(url.pathname === "/" ? "/plugin.json" : url.pathname);
   const filePath = resolve(rootDir, `.${pathname}`);
   const rootPrefix = `${rootDir}${sep}`;
 
@@ -70,8 +62,7 @@ const server = createServer(async (request, response) => {
 
     response.writeHead(200, {
       "Content-Length": fileStat.size,
-      "Content-Type":
-        mimeTypes.get(extname(filePath)) ?? "application/octet-stream",
+      "Content-Type": mimeTypes.get(extname(filePath)) ?? "application/octet-stream",
     });
 
     if (request.method === "HEAD") {

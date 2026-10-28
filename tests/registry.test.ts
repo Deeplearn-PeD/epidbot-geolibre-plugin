@@ -5,9 +5,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
-const manifest = JSON.parse(
-  readFileSync(join(root, "geolibre-plugin", "plugin.json"), "utf8"),
-) as { id: string; version: string; description: string; assistant?: { description: string } };
+const manifest = JSON.parse(readFileSync(join(root, "geolibre-plugin", "plugin.json"), "utf8")) as {
+  id: string;
+  version: string;
+  description: string;
+  assistant?: { description: string };
+};
 const zipPath = join(root, "geolibre-plugin", `${manifest.id}-${manifest.version}.zip`);
 const zipUrl = `https://github.com/Deeplearn-PeD/epidbot-geolibre-plugin/releases/download/v${manifest.version}/${manifest.id}-${manifest.version}.zip`;
 

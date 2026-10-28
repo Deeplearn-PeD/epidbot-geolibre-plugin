@@ -11,7 +11,11 @@
  * honors context.signal (the assistant's Stop button) on network work.
  */
 
-import type { GeoLibreAppAPI, GeoLibreAssistantToolSpec, GeoLibreFeatureCollection } from "./lib/geolibre/host-api";
+import type {
+  GeoLibreAppAPI,
+  GeoLibreAssistantToolSpec,
+  GeoLibreFeatureCollection,
+} from "./lib/geolibre/host-api";
 import type { EpidBotClient } from "./api/client";
 import { validateGeoJson } from "./api/results";
 import { buildContextText, attachContext, type MapContextPayload } from "./api/mapContext";
@@ -71,10 +75,11 @@ function askEpidBotSpec(deps: AssistantDeps): GeoLibreAssistantToolSpec {
       }
       const attach = (input as Record<string, unknown>).attach_context;
       const settings = deps.getSettings();
-      const includeContext =
-        typeof attach === "boolean" ? attach : settings.attachMapContext;
+      const includeContext = typeof attach === "boolean" ? attach : settings.attachMapContext;
       const preamble = includeContext
-        ? buildContextText(deps.buildContext() ?? { crs: "", viewBounds: null, layers: [], selection: null })
+        ? buildContextText(
+            deps.buildContext() ?? { crs: "", viewBounds: null, layers: [], selection: null },
+          )
         : "";
       const result = await deps.client.ask(attachContext(question.trim(), preamble), {
         sessionId: deps.getSessionId(),
@@ -126,13 +131,8 @@ function addResultSpec(deps: AssistantDeps): GeoLibreAssistantToolSpec {
       }
       const requested = (input as Record<string, unknown>).name;
       const name =
-        typeof requested === "string" && requested.trim()
-          ? requested.trim()
-          : "EpidBot result";
-      const layerId = deps.app.addGeoJsonLayer(
-        name,
-        validation.fc as GeoLibreFeatureCollection,
-      );
+        typeof requested === "string" && requested.trim() ? requested.trim() : "EpidBot result";
+      const layerId = deps.app.addGeoJsonLayer(name, validation.fc as GeoLibreFeatureCollection);
       const styled = deps.app.importLayerStyle?.(layerId, styleFor(validation.fc));
       deps.onLayerAdded({
         layerId,

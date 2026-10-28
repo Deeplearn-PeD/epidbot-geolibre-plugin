@@ -108,7 +108,6 @@ async function createZip(entries) {
   return Buffer.concat([...localParts, centralDirectory, endRecord]);
 }
 
-
 function crc32(data) {
   let crc = 0xffffffff;
   for (const byte of data) {

@@ -99,10 +99,7 @@ export interface GeoLibreAssistantToolSpec {
   name: string;
   description: string;
   inputSchema?: Record<string, unknown>;
-  callback: (
-    input: unknown,
-    context?: { signal?: AbortSignal },
-  ) => unknown | Promise<unknown>;
+  callback: (input: unknown, context?: { signal?: AbortSignal }) => unknown | Promise<unknown>;
 }
 
 /** The surface GeoLibre exposes to an active plugin. */
@@ -127,9 +124,7 @@ export interface GeoLibreAppAPI {
     params?: Record<string, string | number>,
   ) => string;
   /** Only string values under `plugin.<plugin-id>.` are accepted. */
-  registerTranslations?: (
-    resources: Record<string, Record<string, string>>,
-  ) => void;
+  registerTranslations?: (resources: Record<string, Record<string, string>>) => void;
 
   // -- Networking -----------------------------------------------------------
   /** Desktop only: fetch through the native client (no CORS, cookie jar). */
@@ -156,11 +151,7 @@ export interface GeoLibreAppAPI {
   updateGeoJsonLayer?: (layerId: string, data: GeoLibreFeatureCollection) => boolean;
   removeLayer?: (layerId: string) => void;
   setLayerVisibility?: (layerId: string, visible: boolean) => void;
-  addTileLayer?: (
-    name: string,
-    url: string,
-    options?: Record<string, unknown>,
-  ) => string;
+  addTileLayer?: (name: string, url: string, options?: Record<string, unknown>) => string;
   fitBounds?: (bounds: GeoLibreBounds) => void;
 
   // -- AI assistant (activation-only; omitted from other lifecycle hooks) ----

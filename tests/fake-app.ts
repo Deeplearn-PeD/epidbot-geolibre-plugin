@@ -26,6 +26,18 @@ export interface FakeApp {
   /** Layers added through addGeoJsonLayer / addTileLayer. */
   addedLayers: Array<{ name: string; data: GeoLibreFeatureCollection }>;
   addedTiles: Array<{ name: string; url: string }>;
+  /** Map layers known to the host (listLayers / getLayerFeatures). */
+  layers: Map<
+    string,
+    {
+      summary: { id: string; name: string; type: string; visible: boolean; opacity: number };
+      features: GeoLibreFeatureInput[];
+    }
+  >;
+  /** updateGeoJsonLayer calls (layer write-back). */
+  updates: Array<{ layerId: string; data: GeoLibreFeatureCollection }>;
+  /** View bounds reported by getViewBounds. */
+  viewBounds: [number, number, number, number] | null;
   /** Active renderer reported by getMapRenderer. */
   renderer: "maplibre" | "mapbox" | "cesium" | "arcgis";
   /** Assistant tool specs and guidance registered by the plugin. */
@@ -44,6 +56,9 @@ export function createFakeApp(): FakeApp {
   let selectedLayerId: string | null = null;
   const addedLayers: Array<{ name: string; data: GeoLibreFeatureCollection }> = [];
   const addedTiles: Array<{ name: string; url: string }> = [];
+  const layers: FakeApp["layers"] = new Map();
+  const updates: FakeApp["updates"] = [];
+  let viewBounds: FakeApp["viewBounds"] = null;
   let renderer: FakeApp["renderer"] = "maplibre";
   const tools = new Map<string, GeoLibreAssistantToolSpec>();
   const guidance: string[] = [];
@@ -96,16 +111,21 @@ export function createFakeApp(): FakeApp {
         catalogs[locale] = { ...(catalogs[locale] ?? {}), ...accepted };
       }
     },
-    translate: (
-      key: string,
-      defaultValue: string,
-      params?: Record<string, string | number>,
-    ) => {
+    translate: (key: string, defaultValue: string, params?: Record<string, string | number>) => {
       const entry = catalogs.en?.[key];
       return interpolate(entry !== undefined ? entry : defaultValue, params);
     },
     getSelectedFeatures: () => selectedFeatures,
     getSelectedLayerId: () => selectedLayerId,
+    listLayers: () => [...layers.values()].map((layer) => layer.summary),
+    getLayerFeatures: (layerId: string) => layers.get(layerId)?.features ?? [],
+    updateGeoJsonLayer: (layerId: string, data: GeoLibreFeatureCollection) => {
+      if (!layers.has(layerId)) return false;
+      layers.get(layerId)!.features = [...data.features] as GeoLibreFeatureInput[];
+      updates.push({ layerId, data });
+      return true;
+    },
+    getViewBounds: () => viewBounds,
     addGeoJsonLayer: (name: string, data: GeoLibreFeatureCollection) => {
       addedLayers.push({ name, data });
       return `layer-${addedLayers.length}`;
@@ -146,6 +166,14 @@ export function createFakeApp(): FakeApp {
     },
     addedLayers,
     addedTiles,
+    layers,
+    updates,
+    set viewBounds(value: FakeApp["viewBounds"]) {
+      viewBounds = value;
+    },
+    get viewBounds() {
+      return viewBounds;
+    },
     set renderer(value: FakeApp["renderer"]) {
       renderer = value;
     },

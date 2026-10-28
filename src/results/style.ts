@@ -44,7 +44,9 @@ export interface NumericPropertySummary {
 }
 
 /** Find the numeric property with the highest coverage across features. */
-export function dominantNumericProperty(fc: GeoLibreFeatureCollection): NumericPropertySummary | null {
+export function dominantNumericProperty(
+  fc: GeoLibreFeatureCollection,
+): NumericPropertySummary | null {
   const counts = new Map<string, { count: number; values: number[] }>();
   const features = fc.features as Array<{ properties?: Record<string, unknown> | null }>;
   for (const feature of features) {
@@ -73,9 +75,7 @@ function dominantGeometry(fc: GeoLibreFeatureCollection): "point" | "line" | "po
   const counts = new Map<string, number>();
   for (const feature of fc.features as Array<{ geometry?: { type?: string } | null }>) {
     const type = feature.geometry?.type ?? "";
-    const kind = type.startsWith("Multi")
-      ? type.slice(5)
-      : type || "point";
+    const kind = type.startsWith("Multi") ? type.slice(5) : type || "point";
     counts.set(kind, (counts.get(kind) ?? 0) + 1);
   }
   let best = "point";
@@ -107,22 +107,14 @@ export function defaultStyle(geometry: "point" | "line" | "polygon"): Record<str
 }
 
 /** 5-class quantile choropleth for polygons, using a data-driven fill. */
-export function choroplethStyle(
-  property: string,
-  breaks: number[],
-): Record<string, unknown> {
+export function choroplethStyle(property: string, breaks: number[]): Record<string, unknown> {
   const stops: unknown[] = [];
   breaks.forEach((value, index) => {
     stops.push(value, CHOROPLETH_COLORS[index]);
   });
   return {
     fill: {
-      "fill-color": [
-        "interpolate",
-        ["linear"],
-        ["to-number", ["get", property]],
-        ...stops,
-      ],
+      "fill-color": ["interpolate", ["linear"], ["to-number", ["get", property]], ...stops],
       "fill-opacity": 0.7,
     },
     line: { "line-color": "#333333", "line-width": 0.5, "line-opacity": 0.8 },
@@ -138,10 +130,7 @@ export function styleFor(fc: GeoLibreFeatureCollection): string {
   if (geometry === "polygon") {
     const summary = dominantNumericProperty(fc);
     const breaks = summary ? quantileBreaks(summary.values) : null;
-    style =
-      summary && breaks
-        ? choroplethStyle(summary.property, breaks)
-        : defaultStyle(geometry);
+    style = summary && breaks ? choroplethStyle(summary.property, breaks) : defaultStyle(geometry);
   } else {
     style = defaultStyle(geometry);
   }

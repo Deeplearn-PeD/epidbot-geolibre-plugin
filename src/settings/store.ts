@@ -49,6 +49,11 @@ export function sanitizeSettings(value: unknown): EpidBotSettings {
   const serverUrl = normalizeServerUrl(
     typeof source.serverUrl === "string" ? source.serverUrl : "",
   );
+  const rawBudget = Number(source.inlineBudgetKb);
+  const inlineBudgetKb =
+    Number.isFinite(rawBudget) && rawBudget > 0
+      ? Math.min(Math.max(rawBudget, 4), 2048)
+      : DEFAULT_SETTINGS.inlineBudgetKb;
   return {
     serverUrl: serverUrl || DEFAULT_SETTINGS.serverUrl,
     answerLocale: locale,
@@ -57,6 +62,11 @@ export function sanitizeSettings(value: unknown): EpidBotSettings {
       typeof source.attachMapContext === "boolean"
         ? source.attachMapContext
         : DEFAULT_SETTINGS.attachMapContext,
+    inlineBudgetKb,
+    artifactUploads:
+      typeof source.artifactUploads === "boolean"
+        ? source.artifactUploads
+        : DEFAULT_SETTINGS.artifactUploads,
   };
 }
 

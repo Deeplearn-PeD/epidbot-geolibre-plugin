@@ -1,6 +1,6 @@
 {
   "name": "epidbot-geolibre-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "EpidBot — the AI assistant for Brazilian public health data — as a GeoLibre plugin",
   "type": "module",
   "private": true,

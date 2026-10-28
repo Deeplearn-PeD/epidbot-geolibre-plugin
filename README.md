@@ -7,13 +7,14 @@ looking at, with the answers coming back as map layers and charts.
 
 This repository is the GeoLibre counterpart of
 [`Deeplearn-PeD/epidbot-qgis-plugin`](https://github.com/Deeplearn-PeD/epidbot-qgis-plugin).
-It is currently at the **planning stage**: this README is the development plan.
 
-Status: **F0–F5 implemented** (scaffold, chat panel, API client, settings,
-i18n, map context + spatial prompts, results on the map, sessions, assistant
-tools — 138 unit tests, CI, reproducible zip). Next: F6 (registry
-submission), F7 (launch — held until the API-key plan gate opens to Pro).
-Code complete for parity + GeoLibre extras.
+Status: **0.2.0 — feature parity with the QGIS plugin 0.3.0** (chat panel, API
+client, settings, i18n, map context with layer schemas, results on the map,
+sessions, assistant tools, layer exchange with budgets and interactive
+reduction, attribute write-back with review + revert, authenticated artifact
+downloads/uploads, quick prompts — 229 unit tests, CI, reproducible zip).
+Next: F6 (registry submission), F7 (launch — held until the API-key plan gate
+opens to Pro).
 
 License: MIT (see [LICENSE](LICENSE)).
 
@@ -31,22 +32,39 @@ module, which makes an EpidBot client simpler and more portable than the Python 
 - the same REST contract already used by the QGIS plugin and the VS Code extension;
 - a path to registering EpidBot as a tool of GeoLibre's own AI assistant.
 
-## 2. Scope of the first release (parity with the QGIS plugin)
+## 2. Scope (parity with the QGIS plugin, 0.3.0 feature set)
 
 In scope:
 
-- a dockable **EpidBot chat panel** inside GeoLibre, with Markdown answers and inline charts;
+- a dockable **EpidBot chat panel** inside GeoLibre, with Markdown answers, framed code
+  blocks with a copy button, and inline charts;
 - **API-key authentication** with the key stored through the host credential store;
-- **map-context injection** — active layers (name/type/visibility), viewport bounds, map CRS and
-  the current selection are sent with the question when the user allows it;
+- **map-context injection** — layer schemas (field names and inferred types), sample
+  values of categorical fields, feature and selection counts, viewport bounds and CRS
+  are sent with the question when the user allows it;
 - one-click **spatial prompts**: "ask about this extent", "ask about this selection";
-- **results on the map** — GeoJSON blocks from an answer become styled layers; dataset/tile URLs
-  become tile layers; generated plots can be viewed, exported or sent to the print layout;
+- **layer exchange** (QGIS 0.3.0) — attach layer data to prompts: selected features,
+  features in view, the whole layer, or identifiers only, with a configurable inline
+  budget (default 64 KiB) and an interactive reduction flow (narrow to view /
+  narrow to selection / reduce coordinate precision / upload as server artifact /
+  send statistics only);
+- **attribute write-back** (QGIS 0.3.0) — ```epidbot-edit blocks in answers become
+  reviewable operations (add/update field, join by a semantic key or fid); the review
+  dialog shows matched/unmatched/invalid counts and sample rows before anything is
+  written, and a **Revert** chip restores the previous attributes afterwards (the host
+  has no edit session or undo, so the plugin keeps the snapshot);
+- **results on the map** — GeoJSON blocks from an answer become styled layers;
+  dataset/tile URLs and EpidBot **artifacts** become layers (artifact and same-server
+  downloads are authenticated); CSVs with latitude/longitude columns become point
+  layers client-side; plots are viewable and exportable;
 - **sessions** — pick an existing conversation, start a new one, export it as Markdown;
+- **quick prompts** — preset prompts from a dropdown;
 - **EN / pt-BR interface**, following the GeoLibre application language.
 
-Out of scope for the first release: file upload into a session, report generation UI, knowledge
-base management, streaming responses (the REST contract is submit-and-poll).
+Not supported (documented host limitations): `.gpkg`/`.zip` dataset URLs cannot be
+read in the browser (no OGR); report-generation UI, knowledge-base management and
+streaming responses remain out of scope. Artifact uploads additionally require server
+support and are off by default (matching the QGIS plugin).
 
 ## 3. Verified host facts (researched 2026-10-28)
 
@@ -70,7 +88,8 @@ shorthand below means `/api/v1/chat`; every path carries the `/api/v1` prefix):
 
 - Base URL: `https://api.epidbot.kwar-ai.com.br`
 - Chat: `POST /api/v1/chat` with header `X-API-Key: <key>` and body
-  `{"message": <question>, "session_id": <id|null>, "locale": "en"|"pt-BR"}`;
+  `{"message": <question>, "session_id": <id|null>, "locale": "en"|"pt-BR",
+  "artifact_ids": [<id>…]?}`;
   the response carries `job_id` (and the server-created `session_id` when the
   caller sent none). `GET /api/v1/chat/{job_id}` is polled (~1.5 s, growing
   1.15×, capped) until `status` is `completed` (`content`, `images`,
@@ -80,6 +99,11 @@ shorthand below means `/api/v1/chat`; every path carries the `/api/v1` prefix):
   (`{"name": ...}`), `GET /api/v1/sessions/{id}/messages`.
 - Plots: `GET /api/v1/sessions/plots/{filename}` (authenticated; fetched as a
   blob since `<img>` cannot send the key header).
+- Artifacts: `POST /api/v1/artifacts` (multipart upload of a layer file,
+  authenticated; the response carries the new artifact id) — used for layer
+  attachments that exceed the inline budget when the user opts in. Artifact
+  URLs (`…/api/v1/artifacts/{id}`) appearing in answers are downloaded with
+  the API key and added as layers.
 - Connection test: `GET /api/v1/auth/me`.
 - Errors: 401 invalid key, 403 plan gate, 429 quota; 502/503/504 and network
   failures are retried with backoff.

@@ -50,9 +50,7 @@ function resolveTarget() {
     // Fail fast on a mistyped root so we don't silently build a fake tree.
     const desktopAppDir = join(geolibreRoot, "apps", "geolibre-desktop");
     if (!statSync(desktopAppDir, { throwIfNoEntry: false })?.isDirectory()) {
-      throw new Error(
-        `--web path is not a GeoLibre repo root: ${desktopAppDir} does not exist.`,
-      );
+      throw new Error(`--web path is not a GeoLibre repo root: ${desktopAppDir} does not exist.`);
     }
     return {
       mode: "web",
@@ -87,9 +85,7 @@ async function assertBuilt() {
     try {
       await stat(join(bundleDir, rel));
     } catch {
-      throw new Error(
-        `Missing ${rel} in ${bundleDir}. Run "npm run build:geolibre" first.`,
-      );
+      throw new Error(`Missing ${rel} in ${bundleDir}. Run "npm run build:geolibre" first.`);
     }
   }
 }

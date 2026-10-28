@@ -4,6 +4,7 @@ import {
   buildContextText,
   buildMapContext,
   DEFAULT_MAP_CONTEXT_BUDGET,
+  describeFields,
   sampleRow,
   type MapContextBudget,
   type MapContextPayload,
@@ -47,19 +48,62 @@ describe("buildMapContext", () => {
       getSelectedFeatures: () => [
         feature({ nome: "Rio de Janeiro", casos: 1200, geo: { complex: true } }),
       ],
+      getLayerFeatures: (layerId: string) =>
+        layerId === "Municipios"
+          ? [
+              feature({ nome: "Rio de Janeiro", casos: 1200 }),
+              feature({ nome: "Niterói", casos: 340 }),
+            ]
+          : [],
     });
     const payload = buildMapContext(app);
     expect(payload.crs).toBe("EPSG:4326");
     expect(payload.viewBounds).toEqual([-43.1235, -23.9877, -43.0, -22.9]);
     expect(payload.layers).toEqual([
-      { name: "Municipios", type: "geojson", visible: true },
-      { name: "Raster", type: "geojson", visible: false },
+      {
+        id: "Municipios",
+        name: "Municipios",
+        type: "geojson",
+        visible: true,
+        featureCount: 2,
+        selectedCount: 1,
+        fields: [
+          { name: "nome", type: "string", samples: ["Rio de Janeiro", "Niterói"] },
+          { name: "casos", type: "integer", samples: ["1200", "340"] },
+        ],
+        fieldsMore: 0,
+      },
+      {
+        id: "Raster",
+        name: "Raster",
+        type: "geojson",
+        visible: false,
+        featureCount: null,
+        selectedCount: null,
+        fields: [],
+        fieldsMore: 0,
+      },
     ]);
     expect(payload.selection).toEqual({
       layerId: "Municipios",
       count: 1,
       rows: [{ nome: "Rio de Janeiro", casos: 1200 }],
     });
+  });
+
+  it("renders layer schemas, sample values and counts (QGIS 0.2.0 parity)", () => {
+    const app = appWith({
+      listLayers: () => [layer("Municipios", true)],
+      getLayerFeatures: () => [
+        feature({ cd_mun: "3304557", municipio: "Rio de Janeiro", pop: 6748000 }),
+        feature({ cd_mun: "3303302", municipio: "Niterói", pop: 515000 }),
+        feature({ cd_mun: "3301701", municipio: "Duque de Caxias", pop: 924000 }),
+      ],
+    });
+    const text = buildContextText(buildMapContext(app));
+    expect(text).toContain('"Municipios" (geojson, 3 features)');
+    expect(text).toContain("fields: cd_mun (string), municipio (string), pop (integer)");
+    expect(text).toContain("municipio in {Rio de Janeiro, Niterói, Duque de Caxias}");
   });
 
   it("puts visible layers first so the cap never hides what the user sees", () => {
@@ -74,6 +118,57 @@ describe("buildMapContext", () => {
       appWith({ getSelectedFeatures: () => [], getSelectedLayerId: () => "x" }),
     );
     expect(payload.selection).toBeNull();
+  });
+
+  it("a broken layer does not kill the prompt", () => {
+    const app = appWith({
+      listLayers: () => [layer("Broken", true), layer("Fine", true)],
+      getLayerFeatures: (layerId: string) => {
+        if (layerId === "Broken") throw new Error("host exploded");
+        return [feature({ ok: 1 })];
+      },
+    });
+    const payload = buildMapContext(app);
+    expect(payload.layers).toHaveLength(2);
+    expect(payload.layers[0].featureCount).toBeNull();
+    expect(payload.layers[1].featureCount).toBe(1);
+  });
+});
+
+describe("describeFields", () => {
+  it("infers integer, number, boolean and string types", () => {
+    const described = describeFields([
+      feature({ i: 1, f: 1.5, b: true, s: "abc" }),
+      feature({ i: 2, f: 2, b: false, s: "bcd" }),
+    ]);
+    const byName = Object.fromEntries(described.fields.map((f) => [f.name, f.type]));
+    expect(byName).toEqual({ i: "integer", f: "number", b: "boolean", s: "string" });
+  });
+
+  it("reports string for unknown or all-null fields", () => {
+    const described = describeFields([feature({ nothing: null })]);
+    expect(described.fields[0].type).toBe("string");
+    expect(described.fields[0].samples).toBeUndefined();
+  });
+
+  it("drops high-cardinality fields from the sample list", () => {
+    const features = Array.from({ length: 20 }, (_, i) => feature({ id: `ID-${i}` }));
+    const described = describeFields(features);
+    expect(described.fields[0].name).toBe("id");
+    expect(described.fields[0].samples).toBeUndefined();
+  });
+
+  it("caps the scan and the listed field count", () => {
+    const many = Object.fromEntries(Array.from({ length: 25 }, (_, i) => [`f${i}`, i]));
+    const described = describeFields([feature(many)]);
+    expect(described.fields).toHaveLength(15);
+    expect(described.fieldsMore).toBe(10);
+  });
+
+  it("only samples values when there are features to scan", () => {
+    const described = describeFields([]);
+    expect(described.fields).toEqual([]);
+    expect(described.fieldsMore).toBe(0);
   });
 });
 
@@ -113,9 +208,14 @@ describe("buildContextText budget", () => {
     crs: "EPSG:4326",
     viewBounds: [-43.123456, -23.987654, -43.000011, -22.9],
     layers: Array.from({ length: 8 }, (_, i) => ({
+      id: `L${i}`,
       name: `Camada de municipios numero ${i} com nome comprido`,
       type: "geojson",
       visible: true,
+      featureCount: null,
+      selectedCount: null,
+      fields: [],
+      fieldsMore: 0,
     })),
     selection: {
       layerId: "Camada de municipios numero 0 com nome comprido",

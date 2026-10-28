@@ -21,10 +21,7 @@ export function registerEpidBotTranslations(app: GeoLibreAppAPI): void {
 export type Translator = (key: string, params?: Record<string, string | number>) => string;
 
 /** Replace {{param}} placeholders; unknown params are left as written. */
-export function interpolate(
-  template: string,
-  params?: Record<string, string | number>,
-): string {
+export function interpolate(template: string, params?: Record<string, string | number>): string {
   if (!params) return template;
   return template.replace(/\{\{(\w+)\}\}/g, (match, name: string) =>
     name in params ? String(params[name]) : match,

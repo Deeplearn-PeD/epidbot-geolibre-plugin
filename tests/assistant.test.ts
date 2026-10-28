@@ -38,8 +38,36 @@ function nativeFetchStub(): typeof fetch {
 const FC = {
   type: "FeatureCollection",
   features: [
-    { type: "Feature", geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, properties: { casos: 10 } },
-    { type: "Feature", geometry: { type: "Polygon", coordinates: [[[2, 0], [3, 0], [3, 1], [2, 0]]] }, properties: { casos: 30 } },
+    {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 0],
+          ],
+        ],
+      },
+      properties: { casos: 10 },
+    },
+    {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [2, 0],
+            [3, 0],
+            [3, 1],
+            [2, 0],
+          ],
+        ],
+      },
+      properties: { casos: 30 },
+    },
   ],
 };
 
@@ -142,9 +170,7 @@ describe("ask_epidbot", () => {
   it("surfaces API failures as tool errors", async () => {
     const fake = harness();
     fake.app.nativeFetch = (async () => jsonResponse({ detail: "bad key" }, 401)) as typeof fetch;
-    await expect(
-      tool(fake, "ask_epidbot").callback({ question: "q" }),
-    ).rejects.toThrow(/401/);
+    await expect(tool(fake, "ask_epidbot").callback({ question: "q" })).rejects.toThrow(/401/);
     plugin.deactivate();
   });
 
@@ -154,10 +180,7 @@ describe("ask_epidbot", () => {
     controller.abort();
     fake.app.nativeFetch = (async () => jsonResponse({ job_id: "job-1" })) as typeof fetch;
     await expect(
-      tool(fake, "ask_epidbot").callback(
-        { question: "q" },
-        { signal: controller.signal },
-      ),
+      tool(fake, "ask_epidbot").callback({ question: "q" }, { signal: controller.signal }),
     ).rejects.toThrow(/cancelled/i);
     plugin.deactivate();
   });
@@ -188,18 +211,16 @@ describe("add_epidbot_result", () => {
     // into tool error results.
     expect(() => spec.callback(undefined)).toThrow(/input must be an object/);
     expect(() => spec.callback({})).toThrow(/Invalid GeoJSON/);
-    expect(() =>
-      spec.callback({ geojson: { type: "FeatureCollection", features: [] } }),
-    ).toThrow(/Invalid GeoJSON/);
+    expect(() => spec.callback({ geojson: { type: "FeatureCollection", features: [] } })).toThrow(
+      /Invalid GeoJSON/,
+    );
     plugin.deactivate();
   });
 
   it("refuses to touch the map on non-2D renderers", () => {
     const fake = harness();
     fake.renderer = "cesium";
-    expect(() =>
-      tool(fake, "add_epidbot_result").callback({ geojson: FC }),
-    ).toThrow(/cesium/);
+    expect(() => tool(fake, "add_epidbot_result").callback({ geojson: FC })).toThrow(/cesium/);
     expect(fake.addedLayers).toHaveLength(0);
     plugin.deactivate();
   });

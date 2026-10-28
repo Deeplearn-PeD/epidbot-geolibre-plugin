@@ -22,6 +22,11 @@ export interface EpidBotSettings {
   pollIntervalSec: number;
   /** Attach viewport/layers/selection context to questions (F2 payload). */
   attachMapContext: boolean;
+  /** Advisory inline budget for layer attachments, in KiB (QGIS parity). */
+  inlineBudgetKb: number;
+  /** Offer server artifact uploads when an attachment is over budget
+   * (requires server support; off by default, like the QGIS plugin). */
+  artifactUploads: boolean;
 }
 
 /** One message shown in the transcript. */
@@ -37,6 +42,8 @@ export const DEFAULT_SETTINGS: EpidBotSettings = {
   answerLocale: "en",
   pollIntervalSec: 1.5,
   attachMapContext: true,
+  inlineBudgetKb: 64,
+  artifactUploads: false,
 };
 
 // --- REST payloads (mirror of the QGIS plugin's core/api_client.py) --------

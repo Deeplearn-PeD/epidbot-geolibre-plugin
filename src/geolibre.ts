@@ -158,6 +158,14 @@ function activateRuntime(app: GeoLibreAppAPI): void {
                 runtime.panel?.promptSelection();
               },
             },
+            {
+              id: `${MENU_ID}-edit-layer`,
+              label: () => t("menu.editLayer"),
+              onSelect: () => {
+                app.openRightPanel?.(PANEL_ID);
+                void runtime.panel?.promptEditLayer();
+              },
+            },
           ],
         },
         {
