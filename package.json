@@ -12,6 +12,11 @@
     "datasus",
     "public-health"
   ],
+  "geolibreRegistry": {
+    "categories": ["Data", "Visualization", "Analysis"],
+    "minGeoLibreVersion": "3.5.0",
+    "publishableSettings": ["settings", "sessionId", "resultLayers"]
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/Deeplearn-PeD/epidbot-geolibre-plugin.git"

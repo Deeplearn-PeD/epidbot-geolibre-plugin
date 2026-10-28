@@ -10,6 +10,7 @@
 // release-plugin workflow runs this for you when you publish a release.
 
 import { createHash } from "node:crypto";
+import { statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,6 +54,32 @@ const repositoryUrl = repository?.replace(/^git\+/, "").replace(/\.git$/, "");
 // The template's placeholder repository URL isn't worth submitting either.
 const homepageUrl = homepage ?? (repositoryUrl?.includes("your-username") ? undefined : repositoryUrl);
 
+// Registry extras declared by the plugin (package.json "geolibreRegistry"):
+// categories, minGeoLibreVersion and publishableSettings — see
+// https://plugins.geolibre.app/registry/. Unknown fields are rejected by the
+// registry schema, so only documented ones are emitted.
+const extras = packageJson.geolibreRegistry ?? {};
+const categories = Array.isArray(extras.categories) ? extras.categories : undefined;
+const minGeoLibreVersion =
+  typeof extras.minGeoLibreVersion === "string" ? extras.minGeoLibreVersion : undefined;
+const publishableSettings = Array.isArray(extras.publishableSettings)
+  ? extras.publishableSettings
+  : undefined;
+
+// Screenshots must live inside the release zip (path relative to
+// plugin.json); only declared files that were actually packaged are listed.
+const screenshots = Array.isArray(manifest.screenshots)
+  ? manifest.screenshots.filter((shot) => {
+      try {
+        statSync(join(bundleDir, shot.path));
+        return true;
+      } catch {
+        console.warn(`registry-entry: screenshot ${shot.path} missing from the bundle; skipped.`);
+        return false;
+      }
+    })
+  : undefined;
+
 const entry = {
   id: manifest.id,
   name: manifest.name,
@@ -61,6 +88,14 @@ const entry = {
   // The template's placeholder author isn't worth submitting.
   ...(author && author !== "Your Name" ? { author } : {}),
   ...(homepageUrl?.startsWith("http") ? { homepage: homepageUrl } : {}),
+  ...(repositoryUrl?.startsWith("https") && !repositoryUrl.includes("your-username")
+    ? { repository: repositoryUrl, issues: `${repositoryUrl}/issues` }
+    : {}),
+  ...(packageJson.license ? { license: packageJson.license } : {}),
+  ...(categories ? { categories } : {}),
+  ...(minGeoLibreVersion ? { minGeoLibreVersion } : {}),
+  ...(publishableSettings ? { publishableSettings } : {}),
+  ...(screenshots && screenshots.length > 0 ? { screenshots } : {}),
   manifestUrl: `plugins/${manifest.id}/plugin.json`,
   source: {
     url,

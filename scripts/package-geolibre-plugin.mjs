@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,6 +21,19 @@ const entries = [
 
 if (manifest.style) {
   entries.push([manifest.style, join(bundleDir, manifest.style)]);
+}
+
+// Catalog screenshots ride inside the release zip (paths relative to
+// plugin.json); each is checked to be an existing regular file.
+for (const shot of manifest.screenshots ?? []) {
+  if (!shot?.path) throw new Error(`Invalid screenshot entry: ${JSON.stringify(shot)}`);
+  const path = join(bundleDir, shot.path);
+  if (!statSync(path, { throwIfNoEntry: false })?.isFile()) {
+    throw new Error(
+      `Screenshot ${shot.path} declared in plugin.json but missing from ${bundleDir}.`,
+    );
+  }
+  entries.push([shot.path, path]);
 }
 
 await mkdir(bundleDir, { recursive: true });
