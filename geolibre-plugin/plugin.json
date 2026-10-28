@@ -1,0 +1,8 @@
+{
+  "id": "epidbot",
+  "name": "EpidBot",
+  "version": "0.1.0",
+  "entry": "dist/index.js",
+  "description": "Chat with EpidBot, the AI assistant for Brazilian public health data (DATASUS/SINAN and 40+ other sources), over the map you are looking at. Answers come back as text, charts and map layers.",
+  "style": "dist/style.css"
+}

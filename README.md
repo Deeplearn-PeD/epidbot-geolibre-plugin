@@ -9,8 +9,12 @@ This repository is the GeoLibre counterpart of
 [`Deeplearn-PeD/epidbot-qgis-plugin`](https://github.com/Deeplearn-PeD/epidbot-qgis-plugin).
 It is currently at the **planning stage**: this README is the development plan.
 
-Status: no code yet. Target: functional parity with the QGIS plugin (v0.2.x), then GeoLibre-only
-extras (assistant tools, deep links).
+Status: **F0–F1 implemented** (scaffold, chat panel, API client, settings,
+i18n — 76 unit tests, CI, reproducible zip). Next: F2 (map context), F3
+(results on the map), F4 (sessions UI polish), F5 (assistant tools), F6
+(registry submission), F7 (launch — held until the API-key plan gate opens to
+Pro). Target: functional parity with the QGIS plugin (v0.2.x), then
+GeoLibre-only extras (assistant tools, deep links).
 
 License: MIT (see [LICENSE](LICENSE)).
 
@@ -62,10 +66,24 @@ base management, streaming responses (the REST contract is submit-and-poll).
 
 ## 4. EpidBot API contract
 
+Exact surface, matching the QGIS plugin's `core/api_client.py` (the `/chat`
+shorthand below means `/api/v1/chat`; every path carries the `/api/v1` prefix):
+
 - Base URL: `https://api.epidbot.kwar-ai.com.br`
-- Chat: `POST /chat` with header `X-API-Key: <key>` and a JSON body carrying the question (and the
-  optional `session_id`); the response is a job id, polled with `GET /chat/{job_id}` until the
-  answer is complete — the same submit-and-poll pattern as the QGIS plugin.
+- Chat: `POST /api/v1/chat` with header `X-API-Key: <key>` and body
+  `{"message": <question>, "session_id": <id|null>, "locale": "en"|"pt-BR"}`;
+  the response carries `job_id` (and the server-created `session_id` when the
+  caller sent none). `GET /api/v1/chat/{job_id}` is polled (~1.5 s, growing
+  1.15×, capped) until `status` is `completed` (`content`, `images`,
+  `session_id`), `failed` or `cancelled` — the same submit-and-poll pattern as
+  the QGIS plugin.
+- Session history: `GET /api/v1/sessions`, `POST /api/v1/sessions`
+  (`{"name": ...}`), `GET /api/v1/sessions/{id}/messages`.
+- Plots: `GET /api/v1/sessions/plots/{filename}` (authenticated; fetched as a
+  blob since `<img>` cannot send the key header).
+- Connection test: `GET /api/v1/auth/me`.
+- Errors: 401 invalid key, 403 plan gate, 429 quota; 502/503/504 and network
+  failures are retried with backoff.
 - Authentication: a personal key created in the web app under **Settings → API Keys**.
 - Plan gate: API keys are part of the **Max and Team** plans (Team inherits every Max feature).
 - Data handling: the question and the map context the user explicitly attaches are the only data
@@ -214,12 +232,12 @@ Settled on 2026-10-28:
 - **License**: MIT, matching the GeoLibre plugin template; nothing upstream requires GPL.
 - **Publishing**: submit to the public GeoLibre registry (`opengeos/geolibre-plugins`), with the
   source staying in this repository and the registry pointing at a release zip pinned by SHA-256.
-
-Still open:
-
-- **First audience**: Team accounts only (they already hold API keys), or wait for the plan-gate
-  decision on Pro.
-- **Web build**: support GeoLibre Web from day one, or desktop-only for the first release.
+- **First audience**: launch waits for the plan gate to open to **Pro** (decided 2026-10-28).
+  Development and testing still need at least one Max/Team API key — secure it during F0.
+- **Web build**: GeoLibre Web is supported from the first release, alongside Desktop
+  (decided 2026-10-28; the CORS preflight is already verified).
+- **Renderers**: all four engines are declared; on `cesium`/`arcgis` the chat works and
+  map-writing actions are hidden at runtime via `getMapRenderer()` (decided 2026-10-28).
 
 ## 10. References
 

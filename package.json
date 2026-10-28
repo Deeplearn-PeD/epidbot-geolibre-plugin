@@ -1,0 +1,44 @@
+{
+  "name": "epidbot-geolibre-plugin",
+  "version": "0.1.0",
+  "description": "EpidBot — the AI assistant for Brazilian public health data — as a GeoLibre plugin",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "keywords": [
+    "geolibre",
+    "epidbot",
+    "epidemiology",
+    "datasus",
+    "public-health"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Deeplearn-PeD/epidbot-geolibre-plugin.git"
+  },
+  "scripts": {
+    "build:geolibre": "vite build --config vite.geolibre.config.ts",
+    "package:geolibre": "npm run build:geolibre && node scripts/package-geolibre-plugin.mjs",
+    "registry:entry": "node scripts/registry-entry.mjs",
+    "install:geolibre": "npm run build:geolibre && node scripts/install-geolibre-plugin.mjs",
+    "serve:geolibre": "node scripts/serve-geolibre-plugin.mjs",
+    "check:size": "node scripts/check-size.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest --run",
+    "test:coverage": "vitest --run --coverage",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "format": "prettier --write \"src/**/*.{ts,css}\" \"tests/**/*.ts\" \"scripts/**/*.mjs\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.2",
+    "eslint": "^10.4.1",
+    "globals": "^17.6.0",
+    "jsdom": "^29.1.1",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.60.1",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
+  }
+}
