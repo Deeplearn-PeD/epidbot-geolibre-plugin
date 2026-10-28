@@ -4,6 +4,7 @@
 import { interpolate } from "../src/i18n";
 import type {
   GeoLibreAppAPI,
+  GeoLibreFeatureInput,
   GeoLibrePluginCredentials,
   GeoLibreRightPanelRegistration,
   GeoLibreToolbarMenu,
@@ -17,6 +18,9 @@ export interface FakeApp {
   catalogs: Record<string, Record<string, string>>;
   openedPanels: string[];
   closedPanels: string[];
+  /** Features reported by getSelectedFeatures (mutable in tests). */
+  selectedFeatures: GeoLibreFeatureInput[];
+  selectedLayerId: string | null;
 }
 
 export function createFakeApp(): FakeApp {
@@ -26,6 +30,8 @@ export function createFakeApp(): FakeApp {
   const catalogs: Record<string, Record<string, string>> = {};
   const openedPanels: string[] = [];
   const closedPanels: string[] = [];
+  const selectedFeatures: GeoLibreFeatureInput[] = [];
+  let selectedLayerId: string | null = null;
 
   const store: GeoLibrePluginCredentials = {
     get: (name) => credentials.get(name) ?? "",
@@ -83,6 +89,8 @@ export function createFakeApp(): FakeApp {
       const entry = catalogs.en?.[key];
       return interpolate(entry !== undefined ? entry : defaultValue, params);
     },
+    getSelectedFeatures: () => selectedFeatures,
+    getSelectedLayerId: () => selectedLayerId,
     addGeoJsonLayer: () => "layer-id",
   } as GeoLibreAppAPI;
 
@@ -94,5 +102,12 @@ export function createFakeApp(): FakeApp {
     catalogs,
     openedPanels,
     closedPanels,
+    selectedFeatures,
+    set selectedLayerId(value: string | null) {
+      selectedLayerId = value;
+    },
+    get selectedLayerId() {
+      return selectedLayerId;
+    },
   };
 }

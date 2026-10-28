@@ -9,6 +9,26 @@ export const en: Record<string, string> = {
   "plugin.epidbot.menu.newSession": "New session",
   "plugin.epidbot.menu.export": "Export as Markdown",
   "plugin.epidbot.menu.settings": "Settings…",
+  "plugin.epidbot.menu.ask": "Ask about the map",
+  "plugin.epidbot.menu.askExtent": "Ask about this extent",
+  "plugin.epidbot.menu.askSelection": "Ask about this selection",
+
+  "plugin.epidbot.prompt.extent":
+    "What public health data is relevant for the current map extent?",
+  "plugin.epidbot.prompt.selection":
+    "Summarize the public health characteristics of the selected features.",
+  "plugin.epidbot.prompt.noSelection":
+    "No features are selected. Select features on the map first.",
+  "plugin.epidbot.prompt.noExtent": "The map extent is not available here.",
+
+  "plugin.epidbot.context.attach": "Attach map context",
+  "plugin.epidbot.context.help":
+    "Sends the visible layers, the current extent, the CRS and the selection with your question.",
+  "plugin.epidbot.context.preview": "Preview context",
+  "plugin.epidbot.context.bytes": "{{bytes}} bytes",
+  "plugin.epidbot.context.empty":
+    "Nothing to report — no layers, extent or selection available.",
+  "plugin.epidbot.context.unavailable": "Map context is not available here.",
 
   "plugin.epidbot.composer.placeholder": "Ask about epidemiological data…",
   "plugin.epidbot.composer.send": "Send",
@@ -41,9 +61,6 @@ export const en: Record<string, string> = {
   "plugin.epidbot.settings.serverUrl": "Server URL",
   "plugin.epidbot.settings.locale": "Answer language",
   "plugin.epidbot.settings.pollInterval": "Poll interval (seconds)",
-  "plugin.epidbot.settings.attachContext": "Attach map context to questions",
-  "plugin.epidbot.settings.attachContextHelp":
-    "Sends the visible layers, the current extent and the selection with your question.",
   "plugin.epidbot.settings.test": "Test key",
   "plugin.epidbot.settings.testing": "Testing…",
   "plugin.epidbot.settings.testOk": "Key OK — connected as {{user}}",

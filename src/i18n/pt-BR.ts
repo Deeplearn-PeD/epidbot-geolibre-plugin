@@ -7,6 +7,26 @@ export const ptBR: Record<string, string> = {
   "plugin.epidbot.menu.newSession": "Nova sessão",
   "plugin.epidbot.menu.export": "Exportar como Markdown",
   "plugin.epidbot.menu.settings": "Configurações…",
+  "plugin.epidbot.menu.ask": "Perguntar sobre o mapa",
+  "plugin.epidbot.menu.askExtent": "Perguntar sobre esta extensão",
+  "plugin.epidbot.menu.askSelection": "Perguntar sobre esta seleção",
+
+  "plugin.epidbot.prompt.extent":
+    "Quais dados de saúde pública são relevantes para a extensão atual do mapa?",
+  "plugin.epidbot.prompt.selection":
+    "Resuma as características de saúde pública dos elementos selecionados.",
+  "plugin.epidbot.prompt.noSelection":
+    "Nenhum elemento selecionado. Selecione elementos no mapa primeiro.",
+  "plugin.epidbot.prompt.noExtent": "A extensão do mapa não está disponível aqui.",
+
+  "plugin.epidbot.context.attach": "Anexar contexto do mapa",
+  "plugin.epidbot.context.help":
+    "Envia as camadas visíveis, a extensão atual, o CRS e a seleção junto com a sua pergunta.",
+  "plugin.epidbot.context.preview": "Pré-visualizar contexto",
+  "plugin.epidbot.context.bytes": "{{bytes}} bytes",
+  "plugin.epidbot.context.empty":
+    "Nada a relatar — sem camadas, extensão ou seleção disponíveis.",
+  "plugin.epidbot.context.unavailable": "O contexto do mapa não está disponível aqui.",
 
   "plugin.epidbot.composer.placeholder": "Pergunte sobre dados epidemiológicos…",
   "plugin.epidbot.composer.send": "Enviar",
@@ -39,9 +59,6 @@ export const ptBR: Record<string, string> = {
   "plugin.epidbot.settings.serverUrl": "URL do servidor",
   "plugin.epidbot.settings.locale": "Idioma das respostas",
   "plugin.epidbot.settings.pollInterval": "Intervalo de consulta (segundos)",
-  "plugin.epidbot.settings.attachContext": "Anexar contexto do mapa às perguntas",
-  "plugin.epidbot.settings.attachContextHelp":
-    "Envia as camadas visíveis, a extensão atual e a seleção junto com a sua pergunta.",
   "plugin.epidbot.settings.test": "Testar chave",
   "plugin.epidbot.settings.testing": "Testando…",
   "plugin.epidbot.settings.testOk": "Chave OK — conectado como {{user}}",

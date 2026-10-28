@@ -291,6 +291,33 @@
   text-decoration: none;
 }
 
+/* Context bar + preview */
+
+.epidbot-contextbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 0;
+}
+
+.epidbot-contextbar .epidbot-context-preview-toggle {
+  font-size: 12px;
+}
+
+.epidbot-context-preview {
+  margin: 4px 10px 0;
+  padding: 8px;
+  max-height: 10em;
+  overflow: auto;
+  font-size: 11px;
+  background: rgba(128, 128, 128, 0.12);
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
 /* Status + composer */
 
 .epidbot-status {

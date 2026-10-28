@@ -8,6 +8,7 @@
 
 import "./panel/styles.css";
 import { EpidBotClient } from "./api/client";
+import { buildMapContext } from "./api/mapContext";
 import { createTranslator, registerEpidBotTranslations } from "./i18n";
 import type { GeoLibreAppAPI, GeoLibrePlugin } from "./lib/geolibre/host-api";
 import { EpidBotPanel } from "./panel/panel";
@@ -62,6 +63,7 @@ function activateRuntime(app: GeoLibreAppAPI): void {
       client.setServerUrl(next.serverUrl);
     },
     getApiKey: () => loadApiKey(app),
+    buildContext: () => buildMapContext(app),
   });
   runtime.panel = panel;
 
@@ -91,6 +93,29 @@ function activateRuntime(app: GeoLibreAppAPI): void {
           id: `${MENU_ID}-open`,
           label: () => t("menu.open"),
           onSelect: () => app.openRightPanel?.(PANEL_ID),
+        },
+        {
+          type: "submenu",
+          id: `${MENU_ID}-ask`,
+          label: () => t("menu.ask"),
+          items: [
+            {
+              id: `${MENU_ID}-ask-extent`,
+              label: () => t("menu.askExtent"),
+              onSelect: () => {
+                app.openRightPanel?.(PANEL_ID);
+                runtime.panel?.promptExtent();
+              },
+            },
+            {
+              id: `${MENU_ID}-ask-selection`,
+              label: () => t("menu.askSelection"),
+              onSelect: () => {
+                app.openRightPanel?.(PANEL_ID);
+                runtime.panel?.promptSelection();
+              },
+            },
+          ],
         },
         {
           id: `${MENU_ID}-new-session`,

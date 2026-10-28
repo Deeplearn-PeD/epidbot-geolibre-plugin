@@ -3,10 +3,18 @@ import { EpidBotClient } from "../src/api/client";
 import { EpidBotQuotaError } from "../src/api/errors";
 import { createTranslator, registerEpidBotTranslations } from "../src/i18n";
 import { DEFAULT_SETTINGS, type EpidBotSettings } from "../src/types";
+import type { MapContextPayload } from "../src/api/mapContext";
 import { EpidBotPanel, turnsFromHistory } from "../src/panel/panel";
 import { createFakeApp, type FakeApp } from "./fake-app";
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const SAMPLE_CONTEXT: MapContextPayload = {
+  crs: "EPSG:4326",
+  viewBounds: [-43.2, -23.1, -43.1, -22.9],
+  layers: [{ name: "Municipios", type: "geojson", visible: true }],
+  selection: null,
+};
 
 interface Harness {
   fake: FakeApp;
@@ -20,6 +28,8 @@ interface Harness {
   };
   settings: EpidBotSettings;
   onSettingsChange: ReturnType<typeof vi.fn>;
+  /** Mutable context payload returned by the buildContext stub. */
+  context: { payload: MapContextPayload | null };
 }
 
 function harness({ withKey = true }: { withKey?: boolean } = {}): Harness {
@@ -46,17 +56,19 @@ function harness({ withKey = true }: { withKey?: boolean } = {}): Harness {
   const onSettingsChange = vi.fn((next: EpidBotSettings) => {
     Object.assign(settings, next);
   });
+  const context: { payload: MapContextPayload | null } = { payload: { ...SAMPLE_CONTEXT } };
 
   const panel = new EpidBotPanel(fake.app, client as unknown as EpidBotClient, t, {
     getSettings: () => settings,
     onSettingsChange,
     getApiKey: () => fake.credentials.get("api-key") ?? "",
+    buildContext: () => context.payload,
   });
 
   const container = document.createElement("div");
   document.body.appendChild(container);
   panel.attach(container);
-  return { fake, panel, client, settings, onSettingsChange };
+  return { fake, panel, client, settings, onSettingsChange, context };
 }
 
 function composer(): { input: HTMLTextAreaElement; form: HTMLFormElement } {
@@ -92,7 +104,7 @@ describe("EpidBotPanel", () => {
     await submitQuestion(panel, "How many dengue cases in 2025?");
 
     expect(client.ask).toHaveBeenCalledWith(
-      "How many dengue cases in 2025?",
+      expect.stringContaining("How many dengue cases in 2025?"),
       expect.objectContaining({ sessionId: null, locale: "en" }),
     );
     const bubbles = document.querySelectorAll(".epidbot-msg");
@@ -200,6 +212,93 @@ describe("EpidBotPanel", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     expect(() => panel.attach(container)).not.toThrow();
+  });
+});
+
+describe("map context (F2)", () => {
+  it("reflects the attach switch and persists toggles through settings", () => {
+    const { onSettingsChange, settings } = harness();
+    const checkbox = document.querySelector<HTMLInputElement>(".epidbot-context-attach input")!;
+    expect(checkbox.checked).toBe(true);
+    checkbox.click();
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      expect.objectContaining({ attachMapContext: false }),
+    );
+    expect(settings.attachMapContext).toBe(false);
+  });
+
+  it("previews the exact preamble with its byte size", () => {
+    const { panel } = harness();
+    const toggle = document.querySelector<HTMLButtonElement>(".epidbot-context-preview-toggle")!;
+    toggle.click();
+    const pre = document.querySelector<HTMLPreElement>(".epidbot-context-preview")!;
+    expect(pre.hidden).toBe(false);
+    expect(pre.textContent).toContain("[Map context]");
+    expect(pre.textContent).toContain("-43.2");
+    expect(pre.textContent).toMatch(/bytes$/m);
+    toggle.click();
+    expect(pre.hidden).toBe(true);
+    void panel;
+  });
+
+  it("attaches the context to the outgoing message when enabled", async () => {
+    const { panel, client } = harness();
+    await submitQuestion(panel, "Why dengue here?");
+    const message = client.ask.mock.calls[0][0] as string;
+    expect(message).toContain("[Map context]");
+    expect(message).toContain("Map extent: -43.2,-23.1 to -43.1,-22.9");
+    expect(message.trim().endsWith("Why dengue here?")).toBe(true);
+    // The user bubble shows the bare question, not the preamble.
+    const bubbles = document.querySelectorAll(".epidbot-msg");
+    expect(bubbles[0].textContent).toBe("Why dengue here?");
+  });
+
+  it("sends a bare question when the switch is off", async () => {
+    const { panel, client } = harness();
+    document.querySelector<HTMLInputElement>(".epidbot-context-attach input")!.click();
+    await submitQuestion(panel, "Why dengue here?");
+    expect(client.ask.mock.calls[0][0]).toBe("Why dengue here?");
+  });
+
+  it("force-attaches context once via 'ask about this extent'", async () => {
+    const { panel, client } = harness();
+    document.querySelector<HTMLInputElement>(".epidbot-context-attach input")!.click();
+    panel.promptExtent();
+    const { input } = composer();
+    expect(input.value).toContain("current map extent");
+    await submitQuestion(panel, input.value);
+    expect(client.ask.mock.calls[0][0]).toContain("[Map context]");
+    // The one-shot override is spent: the next question goes out bare.
+    await submitQuestion(panel, "plain question");
+    expect(client.ask.mock.calls[1][0]).toBe("plain question");
+  });
+
+  it("'ask about this selection' requires a selection", async () => {
+    const { fake, panel, client } = harness();
+    panel.promptSelection();
+    expect(document.querySelector(".epidbot-status")?.textContent).toContain(
+      "No features are selected",
+    );
+    expect(composer().input.value).toBe("");
+    expect(client.ask).not.toHaveBeenCalled();
+    void fake;
+  });
+
+  it("'ask about this selection' prefills when features are selected", () => {
+    const { fake, panel } = harness();
+    fake.selectedFeatures.push({ type: "Feature", properties: { nome: "X" } });
+    panel.promptSelection();
+    expect(composer().input.value).toContain("selected features");
+  });
+
+  it("'ask about this extent' without bounds shows a notice", () => {
+    const { context, panel } = harness();
+    context.payload = null;
+    panel.promptExtent();
+    expect(document.querySelector(".epidbot-status")?.textContent).toContain(
+      "not available",
+    );
+    expect(composer().input.value).toBe("");
   });
 });
 

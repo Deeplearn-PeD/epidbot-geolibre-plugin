@@ -24,12 +24,19 @@ import {
   type ApiKeySaveResult,
 } from "../settings/store";
 import type { ChatTurn, EpidBotSettings } from "../types";
+import {
+  attachContext,
+  buildContextText,
+  type MapContextPayload,
+} from "../api/mapContext";
 import { renderMarkdown } from "./markdown";
 
 export interface PanelCallbacks {
   getSettings(): EpidBotSettings;
   onSettingsChange(next: EpidBotSettings): void;
   getApiKey(): string;
+  /** Collect the map context payload (the entry point binds buildMapContext). */
+  buildContext?: () => MapContextPayload | null;
 }
 
 interface ErrorInfo {
@@ -46,6 +53,12 @@ function el<K extends keyof HTMLElementTagNameMap>(
   const node = document.createElement(tag);
   if (className) node.className = className;
   return node;
+}
+
+/** Payload used when the host offers no map members at all: renders as an
+ * empty preamble, so nothing is attached. */
+function emptyContext(): MapContextPayload {
+  return { crs: "", viewBounds: null, layers: [], selection: null };
 }
 
 /** Map a thrown error to a localized message key + params. */
@@ -99,13 +112,14 @@ export class EpidBotPanel {
   private sessionId: number | null = null;
   private abort: AbortController | null = null;
   private busy = false;
+  private oneShotContext = false;
   private objectUrls: string[] = [];
   private sessionsRefreshed = false;
 
   private readonly i18nEls: Array<{
     el: HTMLElement;
     key: string;
-    attr?: "placeholder";
+    attr?: "placeholder" | "title";
   }> = [];
 
   // Element references populated in attach().
@@ -125,7 +139,9 @@ export class EpidBotPanel {
   private serverUrlInput!: HTMLInputElement;
   private localeSelect!: HTMLSelectElement;
   private pollIntervalInput!: HTMLInputElement;
-  private attachContextInput!: HTMLInputElement;
+  private contextAttachInput!: HTMLInputElement;
+  private contextPreviewToggle!: HTMLButtonElement;
+  private contextPreview!: HTMLPreElement;
   private savedIndicator!: HTMLElement;
 
   constructor(app: GeoLibreAppAPI, client: EpidBotClient, t: Translator, cb: PanelCallbacks) {
@@ -152,6 +168,7 @@ export class EpidBotPanel {
     this.statusLine = el("div", "epidbot-status");
     this.statusLine.hidden = true;
     root.appendChild(this.statusLine);
+    root.appendChild(this.buildContextBar());
     this.composerForm = this.buildComposer();
     root.appendChild(this.composerForm);
 
@@ -167,15 +184,25 @@ export class EpidBotPanel {
     return () => this.dispose();
   }
 
-  private bindText(node: HTMLElement, key: string, attr?: "placeholder"): void {
+  private bindText(
+    node: HTMLElement,
+    key: string,
+    attr?: "placeholder" | "title",
+  ): void {
     this.i18nEls.push({ el: node, key, attr });
     this.setText(node, key, attr);
   }
 
-  private setText(node: HTMLElement, key: string, attr?: "placeholder"): void {
+  private setText(
+    node: HTMLElement,
+    key: string,
+    attr?: "placeholder" | "title",
+  ): void {
     const text = this.t(key);
     if (attr === "placeholder") {
       (node as HTMLInputElement).placeholder = text;
+    } else if (attr === "title") {
+      node.title = text;
     } else {
       node.textContent = text;
     }
@@ -248,18 +275,6 @@ export class EpidBotPanel {
     pollLabel.append(pollTitle, this.pollIntervalInput);
     form.appendChild(pollLabel);
 
-    // Attach map context
-    const contextLabel = el("label", "epidbot-checkbox");
-    this.attachContextInput = el("input");
-    this.attachContextInput.type = "checkbox";
-    const contextText = el("span");
-    this.bindText(contextText, "settings.attachContext");
-    contextLabel.append(this.attachContextInput, contextText);
-    form.appendChild(contextLabel);
-    const contextHelp = el("p", "epidbot-hint");
-    this.bindText(contextHelp, "settings.attachContextHelp");
-    form.appendChild(contextHelp);
-
     // Save
     const saveButton = el("button", "epidbot-button epidbot-button-primary");
     saveButton.type = "submit";
@@ -312,6 +327,57 @@ export class EpidBotPanel {
     return option;
   }
 
+  /** Context indicator above the composer: the attach switch (persisted in
+   * settings) and a preview showing the exact preamble that would be sent. */
+  private buildContextBar(): HTMLElement {
+    const bar = el("div", "epidbot-contextbar");
+    const label = el("label", "epidbot-checkbox epidbot-context-attach");
+    this.contextAttachInput = el("input");
+    this.contextAttachInput.type = "checkbox";
+    this.contextAttachInput.addEventListener("change", () => {
+      this.cb.onSettingsChange({
+        ...this.cb.getSettings(),
+        attachMapContext: this.contextAttachInput.checked,
+      });
+    });
+    const text = el("span");
+    this.bindText(text, "context.attach");
+    this.bindText(label, "context.help", "title");
+    label.append(this.contextAttachInput, text);
+    this.contextPreviewToggle = el(
+      "button",
+      "epidbot-button epidbot-button-secondary epidbot-context-preview-toggle",
+    );
+    this.contextPreviewToggle.type = "button";
+    this.bindText(this.contextPreviewToggle, "context.preview");
+    this.contextPreviewToggle.addEventListener("click", () => {
+      const preview = this.contextPreview;
+      preview.hidden = !preview.hidden;
+      if (!preview.hidden) this.fillContextPreview();
+    });
+    this.contextPreview = el("pre", "epidbot-context-preview");
+    this.contextPreview.hidden = true;
+    bar.append(label, this.contextPreviewToggle);
+    bar.appendChild(this.contextPreview);
+    return bar;
+  }
+
+  private fillContextPreview(): void {
+    const payload = this.cb.buildContext?.() ?? null;
+    if (!payload) {
+      this.contextPreview.textContent = this.t("context.unavailable");
+      return;
+    }
+    const preamble = buildContextText(payload);
+    const size = new TextEncoder().encode(preamble).length;
+    this.contextPreview.textContent =
+      preamble || this.t("context.empty");
+    if (preamble) {
+      this.contextPreview.textContent +=
+        `\n\n— ${this.t("context.bytes", { bytes: size })}`;
+    }
+  }
+
   private buildComposer(): HTMLFormElement {
     const form = el("form", "epidbot-composer");
     this.composerInput = el("textarea");
@@ -355,6 +421,10 @@ export class EpidBotPanel {
   dispose(): void {
     this.abort?.abort();
     this.abort = null;
+    if (this.statusTimer !== null) {
+      window.clearTimeout(this.statusTimer);
+      this.statusTimer = null;
+    }
     for (const url of this.objectUrls) URL.revokeObjectURL(url);
     this.objectUrls = [];
     this.root?.remove();
@@ -399,9 +469,9 @@ export class EpidBotPanel {
     this.fillSettingsForm(next);
   }
 
-  /** Ask a question programmatically (composer submit and, later, the
-   * toolbar's spatial prompts go through here). */
-  async ask(question: string): Promise<void> {
+  /** Ask a question programmatically (composer submit, toolbar spatial
+   * prompts and, later, the host assistant go through here). */
+  async ask(question: string, opts: { forceContext?: boolean } = {}): Promise<void> {
     if (this.busy || !this.root) return;
     const text = question.trim();
     if (!text) return;
@@ -417,7 +487,14 @@ export class EpidBotPanel {
     this.abort = new AbortController();
     this.showStatus(this.t("status.submitting"));
     try {
-      const result = await this.client.ask(text, {
+      const attach =
+        opts.forceContext === true ||
+        this.oneShotContext ||
+        this.cb.getSettings().attachMapContext;
+      const preamble =
+        attach ? buildContextText(this.cb.buildContext?.() ?? emptyContext()) : "";
+      const message = attachContext(text, preamble);
+      const result = await this.client.ask(message, {
         sessionId: this.sessionId,
         locale: this.cb.getSettings().answerLocale,
         signal: this.abort.signal,
@@ -440,7 +517,40 @@ export class EpidBotPanel {
       this.setBusy(false);
       this.showStatus(null);
       this.abort = null;
+      this.oneShotContext = false;
     }
+  }
+
+  // ------------------------------------------------------------------
+  // Spatial prompts (toolbar: ask about this extent / this selection)
+  // ------------------------------------------------------------------
+
+  /** Prefill the composer with a question about the current extent and
+   * force-attach the map context for the next send. */
+  promptExtent(): void {
+    if (!this.root) return;
+    const payload = this.cb.buildContext?.() ?? null;
+    if (!payload?.viewBounds) {
+      this.flashStatus(this.t("prompt.noExtent"));
+      return;
+    }
+    this.composerInput.value = this.t("prompt.extent");
+    this.oneShotContext = true;
+    this.composerInput.focus();
+  }
+
+  /** Prefill the composer with a question about the current selection and
+   * force-attach the map context for the next send. */
+  promptSelection(): void {
+    if (!this.root) return;
+    const count = this.app.getSelectedFeatures?.().length ?? 0;
+    if (count === 0) {
+      this.flashStatus(this.t("prompt.noSelection"));
+      return;
+    }
+    this.composerInput.value = this.t("prompt.selection");
+    this.oneShotContext = true;
+    this.composerInput.focus();
   }
 
   // ------------------------------------------------------------------
@@ -565,6 +675,18 @@ export class EpidBotPanel {
     this.statusLine.textContent = text ?? "";
   }
 
+  private statusTimer: number | null = null;
+
+  /** Show a status message that clears itself (used for transient notices). */
+  private flashStatus(text: string): void {
+    this.showStatus(text);
+    if (this.statusTimer !== null) window.clearTimeout(this.statusTimer);
+    this.statusTimer = window.setTimeout(() => {
+      this.showStatus(null);
+      this.statusTimer = null;
+    }, 4000);
+  }
+
   private setBusy(busy: boolean): void {
     this.busy = busy;
     this.composerButton.textContent = busy ? this.t("composer.stop") : this.t("composer.send");
@@ -641,8 +763,7 @@ export class EpidBotPanel {
   exportMarkdown(): void {
     if (!this.root) return;
     if (this.turns.length === 0) {
-      this.showStatus(this.t("session.exportEmpty"));
-      window.setTimeout(() => this.showStatus(null), 3000);
+      this.flashStatus(this.t("session.exportEmpty"));
       return;
     }
     const lines: string[] = [`# ${this.t("panel.title")}`, ""];
@@ -672,7 +793,7 @@ export class EpidBotPanel {
     this.serverUrlInput.value = settings.serverUrl;
     this.localeSelect.value = settings.answerLocale;
     this.pollIntervalInput.value = String(settings.pollIntervalSec);
-    this.attachContextInput.checked = settings.attachMapContext;
+    if (this.contextAttachInput) this.contextAttachInput.checked = settings.attachMapContext;
   }
 
   private readSettingsForm(): EpidBotSettings {
@@ -680,7 +801,9 @@ export class EpidBotPanel {
       serverUrl: this.serverUrlInput.value,
       answerLocale: this.localeSelect.value,
       pollIntervalSec: Number(this.pollIntervalInput.value),
-      attachMapContext: this.attachContextInput.checked,
+      // The attach switch lives in the context bar and persists directly
+      // through onSettingsChange; saving the form must not clobber it.
+      attachMapContext: this.cb.getSettings().attachMapContext,
     });
   }
 
