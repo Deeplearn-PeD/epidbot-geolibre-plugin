@@ -6,7 +6,9 @@
 [![GeoLibre](https://img.shields.io/badge/GeoLibre-%E2%89%A5%203.5.0-2456a6)](https://geolibre.app/)
 
 A [GeoLibre](https://geolibre.app/) plugin that brings **EpidBot** — the AI assistant for
-Brazilian public health data (DATASUS/SINAN, WHO, PAHO, ECDC and 40+ other sources) — into the
+public health and epidemiological data, from Brazilian systems (DATASUS/SINAN) to WHO,
+PAHO, ECDC, CDC, the Malaria Atlas and 40+ other sources, at global, national and
+subnational scales — into the
 GeoLibre workspace, so epidemiological questions can be asked over the map you are already
 looking at, with the answers coming back as map layers and charts.
 

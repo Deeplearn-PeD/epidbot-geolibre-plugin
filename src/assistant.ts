@@ -32,22 +32,25 @@ export interface AssistantDeps {
 }
 
 const GUIDANCE = [
-  "ask_epidbot answers epidemiological questions with EpidBot (Brazilian public",
-  "health data: DATASUS/SINAN — dengue, Zika, chikungunya, malaria, COVID-19,",
-  "vaccination — plus WHO, PAHO and ECDC sources). Call it for public-health",
-  "data questions in Portuguese or English; set attach_context to include the",
-  "current map extent, visible layers and selection. When an answer contains",
-  "GeoJSON, offer to put it on the map with add_epidbot_result. Both tools need",
-  "an EpidBot API key (Max or Team plan) configured in the EpidBot panel.",
+  "ask_epidbot answers epidemiological questions with EpidBot (public health",
+  "and epidemiological data from Brazilian sources — DATASUS/SINAN: dengue,",
+  "Zika, chikungunya, malaria, COVID-19, vaccination — and international",
+  "ones: WHO, PAHO, ECDC, CDC, Malaria Atlas and more, at global, national",
+  "and subnational scales). Call it for public-health data questions in",
+  "Portuguese or English; set attach_context to include the current map",
+  "extent, visible layers and selection. When an answer contains GeoJSON,",
+  "offer to put it on the map with add_epidbot_result. Both tools need an",
+  "EpidBot API key (Max or Team plan) configured in the EpidBot panel.",
 ].join(" ");
 
 function askEpidBotSpec(deps: AssistantDeps): GeoLibreAssistantToolSpec {
   return {
     name: "ask_epidbot",
     description:
-      "Ask EpidBot — the AI assistant for Brazilian public health data " +
-      "(DATASUS/SINAN: dengue, Zika, chikungunya, malaria, COVID-19, " +
-      "vaccination) — a question and get the answer text.",
+      "Ask EpidBot — the AI assistant for public health and epidemiological " +
+      "data (Brazilian DATASUS/SINAN: dengue, Zika, chikungunya, malaria, " +
+      "COVID-19, vaccination; international WHO, PAHO, ECDC, CDC, Malaria " +
+      "Atlas and more) — a question and get the answer text.",
     inputSchema: {
       type: "object",
       properties: {

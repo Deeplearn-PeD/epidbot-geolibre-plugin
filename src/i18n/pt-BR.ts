@@ -107,7 +107,7 @@ export const ptBR: Record<string, string> = {
 
   "plugin.epidbot.welcome.title": "EpidBot — assistente de dados de saúde pública",
   "plugin.epidbot.welcome.body":
-    "Pergunte sobre dados de saúde pública brasileira (DATASUS/SINAN, OPAS, OMS e mais 40 fontes). As respostas podem incluir gráficos e dados que você pode adicionar ao mapa.",
+    "Pergunte sobre dados de saúde pública e epidemiológicos — fontes brasileiras (DATASUS/SINAN) e internacionais (OMS, OPAS, ECDC, CDC, Malaria Atlas e mais). As respostas podem incluir gráficos e dados que você pode adicionar ao mapa.",
   "plugin.epidbot.welcome.noKey":
     "Adicione sua chave de API do EpidBot nas Configurações para começar.",
   "plugin.epidbot.welcome.getApiKey": "Obter uma chave de API (aplicativo web do EpidBot)",

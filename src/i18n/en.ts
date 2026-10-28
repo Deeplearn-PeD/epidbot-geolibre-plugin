@@ -106,7 +106,7 @@ export const en: Record<string, string> = {
 
   "plugin.epidbot.welcome.title": "EpidBot — public health data assistant",
   "plugin.epidbot.welcome.body":
-    "Ask about Brazilian public health data (DATASUS/SINAN, WHO, PAHO and 40+ other sources). Answers can include charts and data you can add to the map.",
+    "Ask about public health and epidemiological data — Brazilian sources (DATASUS/SINAN) and international ones (WHO, PAHO, ECDC, CDC, Malaria Atlas and more). Answers can include charts and data you can add to the map.",
   "plugin.epidbot.welcome.noKey": "Add your EpidBot API key in Settings to start.",
   "plugin.epidbot.welcome.getApiKey": "Get an API key (EpidBot web app)",
 
