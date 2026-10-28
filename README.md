@@ -12,6 +12,8 @@ It is currently at the **planning stage**: this README is the development plan.
 Status: no code yet. Target: functional parity with the QGIS plugin (v0.2.x), then GeoLibre-only
 extras (assistant tools, deep links).
 
+License: MIT (see [LICENSE](LICENSE)).
+
 ---
 
 ## 1. Why a GeoLibre plugin
@@ -108,7 +110,8 @@ Design choices:
   drops the bundle into the app-data plugins directory);
 - record which host API members exist on the targeted GeoLibre version; set
   `minGeoLibreVersion` from that matrix (provisional: `3.5.0`);
-- decide the **plugin id** (`epidbot`) and the **license** (see open decisions);
+- decide the **plugin id** (`epidbot`) and the **license** — both settled: id `epidbot`, license MIT
+  (decided 2026-10-28);
 - re-check the CORS preflight against the EpidBot API and the polling contract.
 
 Done when: the template bundle loads in GeoLibre Desktop and the capability matrix is written down
@@ -166,8 +169,8 @@ adding the result to the map.
 - CI: typecheck, Vitest, bundle budget (≤ ~150 KB gzipped), reproducible zip;
 - release workflow producing the zip plus the `registry/epidbot.json` entry with `sha256`;
 - screenshots (≤ 1 MiB each) inside the zip;
-- registry PR to `opengeos/geolibre-plugins` — **only after Flávio approves publishing under
-  Deeplearn-PeD**.
+- registry PR to `opengeos/geolibre-plugins` — publishing in the public registry is approved
+  (2026-10-28), so the PR goes out with the first release candidate.
 
 Done when: the plugin installs from the release zip by hand, and the registry PR preview build
 loads it.
@@ -204,11 +207,16 @@ Total: ~9–10 developer-days, plus review time in the GeoLibre registry.
 | Plan gate limits reach (API keys are Max/Team; 0 Max and 0 Pro accounts today) | launch to Team accounts first; revisit if the API-key gate moves to Pro |
 | Answers may contain GeoJSON that is wrong or empty | validate before adding, show a confirmation dialog with feature count and a preview |
 
-## 9. Open decisions
+## 9. Decisions
 
-- **License**: GPL-2.0-or-later (parity with the QGIS plugin) or MIT (parity with the GeoLibre
-  plugin template). Nothing upstream forces GPL here.
-- **Publishing**: submit to the public GeoLibre registry, or distribute only via GitHub releases.
+Settled on 2026-10-28:
+
+- **License**: MIT, matching the GeoLibre plugin template; nothing upstream requires GPL.
+- **Publishing**: submit to the public GeoLibre registry (`opengeos/geolibre-plugins`), with the
+  source staying in this repository and the registry pointing at a release zip pinned by SHA-256.
+
+Still open:
+
 - **First audience**: Team accounts only (they already hold API keys), or wait for the plan-gate
   decision on Pro.
 - **Web build**: support GeoLibre Web from day one, or desktop-only for the first release.
