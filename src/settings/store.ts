@@ -35,10 +35,7 @@ function hostOf(url: string): string {
  * no store, or the key was confirmed for a different server. The last case is
  * what stops a shared project file from pointing `serverUrl` at an attacker
  * host and receiving the recipient's key. */
-export function loadApiKey(
-  app: GeoLibreAppAPI,
-  serverUrl: string = DEFAULT_SERVER_URL,
-): string {
+export function loadApiKey(app: GeoLibreAppAPI, serverUrl: string = DEFAULT_SERVER_URL): string {
   const key = app.credentials?.get(CREDENTIAL_NAME) ?? "";
   if (!key) return "";
   const target = hostOf(serverUrl);

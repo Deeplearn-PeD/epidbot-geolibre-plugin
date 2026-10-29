@@ -56,6 +56,7 @@ import {
 import { csvToFeatureCollection } from "../api/csvSource";
 import { styleFor } from "../results/style";
 import { renderMarkdown } from "./markdown";
+import { applyTheme } from "./theme";
 
 export interface PanelCallbacks {
   getSettings(): EpidBotSettings;
@@ -143,6 +144,8 @@ export class EpidBotPanel {
   private oneShotContext = false;
   private objectUrls: string[] = [];
   private sessionsRefreshed = false;
+  /** Watches the host's theme root so live dark/light flips re-sample. */
+  private themeObserver: MutationObserver | null = null;
   /** Pending layer attachments (QGIS 0.3.0 parity). */
   private attachments: Attachment[] = [];
   /** Layer + scope of the last over-budget attempt, for reduction retries. */
@@ -220,6 +223,7 @@ export class EpidBotPanel {
 
     this.root = root;
     container.appendChild(root);
+    this.startThemeWatcher(container);
     this.fillSettingsForm(this.cb.getSettings());
     // Sync the selector with any session id applied before the host rendered.
     if (this.sessionId !== null) this.ensureSessionOption(this.sessionId);
@@ -231,6 +235,36 @@ export class EpidBotPanel {
     if (this.busy) this.showStatus(this.t("status.submitting"));
     void this.refreshSessions();
     return () => this.detach();
+  }
+
+  // ------------------------------------------------------------------
+  // Theme (native controls follow the host's dark/light scheme)
+  // ------------------------------------------------------------------
+
+  /** Sample the host theme now and again when the host flips it. Without
+   * this, the quick-prompts `<select>` popup renders in the browser's
+   * default (light) scheme on a dark app — unreadable. */
+  private startThemeWatcher(container: HTMLElement): void {
+    const root = this.root;
+    if (!root) return;
+    applyTheme(root, container);
+    this.themeObserver?.disconnect();
+    const themeRoot = document.body?.parentElement ?? document.body ?? root.getRootNode();
+    const observer = new MutationObserver(() => {
+      if (this.root) applyTheme(this.root, container);
+    });
+    if (themeRoot instanceof HTMLElement) {
+      observer.observe(themeRoot, {
+        attributes: true,
+        attributeFilter: ["class", "style", "data-theme", "data-bs-theme"],
+      });
+    }
+    this.themeObserver = observer;
+  }
+
+  private stopThemeWatcher(): void {
+    this.themeObserver?.disconnect();
+    this.themeObserver = null;
   }
 
   private bindText(node: HTMLElement, key: string, attr?: "placeholder" | "title"): void {
@@ -909,6 +943,7 @@ export class EpidBotPanel {
    * Re-attach restores the transcript, including the answer when it
    * arrives while detached. */
   detach(): void {
+    this.stopThemeWatcher();
     this.root?.remove();
     this.root = null;
     this.i18nEls.length = 0;

@@ -82,13 +82,15 @@
 }
 
 .epidbot-panel input[type="password"],
+.epidbot-panel input[type="text"],
+.epidbot-panel input[type="password"],
 .epidbot-panel input[type="url"],
 .epidbot-panel input[type="number"],
 .epidbot-panel select,
 .epidbot-panel textarea {
   font: inherit;
-  color: inherit;
-  background: transparent;
+  color: var(--epidbot-text, CanvasText);
+  background-color: var(--epidbot-surface, Canvas);
   border: 1px solid rgba(128, 128, 128, 0.4);
   border-radius: 6px;
   padding: 5px 8px;
@@ -396,11 +398,38 @@
   flex: 1;
   min-width: 0;
   font: inherit;
-  color: inherit;
+  color: var(--epidbot-text, CanvasText);
   border: 1px solid rgba(128, 128, 128, 0.4);
   border-radius: 6px;
-  background: transparent;
+  background-color: var(--epidbot-surface, Canvas);
   padding: 3px 6px;
+}
+
+/* Native dropdown popups follow the panel's color-scheme (pinned by the
+ * theme watcher) and get the same surface/text pair as the closed control,
+ * so options stay readable when the app's dark mode is class-based. */
+.epidbot-panel select option,
+.epidbot-panel select optgroup {
+  background-color: var(--epidbot-surface, Canvas);
+  color: var(--epidbot-text, CanvasText);
+}
+
+/* Native form fields: same treatment as the selects. */
+.epidbot-panel input,
+.epidbot-panel textarea {
+  background-color: var(--epidbot-surface, Canvas);
+  color: var(--epidbot-text, CanvasText);
+}
+
+/* Theme classes: the panel pins color-scheme (set inline by the theme
+ * watcher) so select popups, scrollbars and other native UI render in the
+ * app's scheme even when the host toggles dark mode with a class. */
+.epidbot-panel.epidbot-theme-dark {
+  color-scheme: dark;
+}
+
+.epidbot-panel.epidbot-theme-light {
+  color-scheme: light;
 }
 
 .epidbot-attach-menu {
@@ -430,8 +459,8 @@
   padding: 4px;
   gap: 2px;
   background: inherit;
-  background-color: var(--epidbot-menu-bg, Canvas);
-  color: inherit;
+  background-color: var(--epidbot-surface, Canvas);
+  color: var(--epidbot-text, CanvasText);
   border: 1px solid rgba(128, 128, 128, 0.4);
   border-radius: 8px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
@@ -497,8 +526,8 @@
   width: min(420px, 92%);
   max-height: 85%;
   overflow: auto;
-  background: var(--epidbot-modal-bg, Canvas);
-  color: inherit;
+  background: var(--epidbot-surface, Canvas);
+  color: var(--epidbot-text, CanvasText);
   border: 1px solid rgba(128, 128, 128, 0.5);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -530,10 +559,10 @@
 
 .epidbot-modal-label select {
   font: inherit;
-  color: inherit;
+  color: var(--epidbot-text, CanvasText);
   border: 1px solid rgba(128, 128, 128, 0.4);
   border-radius: 6px;
-  background: transparent;
+  background-color: var(--epidbot-surface, Canvas);
   padding: 4px 6px;
 }
 
